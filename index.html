@@ -1481,320 +1481,202 @@ setTimeout(()=>{patchSearch();try{var t=document.querySelector('.logo em');if(t)
 </script>
 
 
-
-<style id="v6-7-4-saturday-final-css">
-/* V6.7.4 – szombati időpont végleges közös komponens */
-.sat674-box{margin-top:6px;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
-.sat674-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.sat674-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.2px;line-height:1.25}
-.sat674-warn{background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.42);color:var(--go)}
-.sat674-ok{background:rgba(57,211,83,.13);border:1px solid rgba(57,211,83,.42);color:var(--lime)}
-.sat674-time{font-weight:900;color:var(--tx);font-size:12px}
-.sat674-time.big{font-family:'Bebas Neue',sans-serif;letter-spacing:1px;font-size:1.05rem;color:var(--lime)}
-.sat674-input{width:108px!important;min-width:108px!important;padding:6px 8px!important;border-radius:8px!important;font-size:12px!important}
-.sat674-cardline{margin-top:4px;color:var(--mu);font-size:10px;line-height:1.35}
+<style id="v6-7-saturday-css">
+/* V6.7 – szombati logika és létszámkijelzés */
+.sat-time-edit{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.sat-time-edit input[type="time"]{width:115px;padding:7px 8px;border-radius:8px}
+.sat-status{display:inline-block;margin-top:4px;padding:2px 7px;border-radius:999px;border:1px solid rgba(245,200,66,.35);color:var(--go);background:rgba(245,200,66,.08);font-size:10px;font-weight:800;letter-spacing:.3px}
 .count-line{color:var(--mu);font-size:12px;margin-top:3px}.count-line strong{color:var(--lime)}
 .extra-remove{margin-left:5px;padding:2px 6px;border-radius:5px;border:1px solid rgba(224,85,85,.32);color:var(--re);background:rgba(224,85,85,.08);font-size:10px;cursor:pointer;font-weight:700}.extra-remove:hover{background:rgba(224,85,85,.18)}
 </style>
-
-<script id="v6-7-4-saturday-final-patch">
+<script id="v6-7-saturday-patch">
 (function(){
-  const SAT_PLACEHOLDER='Időpont később';
-  window.__satEdit674 = window.__satEdit674 || {};
+const SAT_TEXT='Időpont később';
+function e(v){return String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function isSatDate(x){const d=new Date(typeof x==='string'?x:(x&&x.date)||x);return d.getDay()===6;}
+function cleanSatTime(s){let t=String((s&&s.time)||'').trim();return (isSatDate(s)&&(t==='18:00'||t==='14:00'))?'':t;}
+function showTime(s){return isSatDate(s)?(cleanSatTime(s)||SAT_TEXT):(s.time||'18:00');}
+function satCourt(s){let old=(s&&s.courts)?(Array.isArray(s.courts)?s.courts[0]:Object.values(s.courts)[0]):{};return {id:(old&&old.id)||'court1',name:'Pálya 1',fee:(old&&old.fee)||getSezonFee(s.date)||DEF_FEE,coachId:(old&&old.coachId)||'',coachName:(old&&old.coachName)||'',saturday:true};}
+function normSat(s){if(!s)return s;if(!isSatDate(s))return s;s.time=cleanSatTime(s);s.courts={court1:satCourt(s)};return s;}
+function courtLbl(s,c){if(isSatDate(s))return 'Pálya 1';let lvl=c&&c.level?(LVLS[c.level]||c.level):'';return (c&&c.name||'Pálya 1')+(lvl?' – '+lvl:'');}
+function courtArr(s){if(isSatDate(s))return [satCourt(s)];let c=s.courts||{};return Object.entries(c).sort((a,b)=>a[0].localeCompare(b[0])).map(([id,x])=>({id,...x}));}
+function applicantsOn(s,cid){return applList(s).filter(a=>applicantCourt(s,a)===cid).length;}
+function addedOn(s,cid){return attList(s).filter(a=>a.courtId===cid&&!(s.applicants||{})[a.playerId]).length;}
+function activePlayers67(){return (typeof playerList==='function'?playerList():Object.values(players||{})).filter(p=>p&&p.active!==false).sort((a,b)=>(a.name||'').localeCompare((b.name||''),'hu'));}
 
-  function esc674(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
-  function isSat674(s){const d=new Date(typeof s==='string'?s:(s&&s.date)||s); return d.getDay()===6;}
-  function cleanTime674(s){let t=String((s&&s.time)||'').trim(); if(isSat674(s)&&(t==='18:00'||t==='14:00')) return ''; return t;}
-  function displayTime674(s){return isSat674(s)?(cleanTime674(s)||SAT_PLACEHOLDER):(s.time||'18:00');}
-  function canEdit674(){try{return !!(typeof hasStaffAccess==='function'&&hasStaffAccess());}catch(e){return false;}}
-  function satCourt674(s){
-    let old={};
-    try{old=(s&&s.courts)?(Array.isArray(s.courts)?s.courts[0]:Object.values(s.courts)[0]):{};}catch(e){}
-    return {id:'court1',name:'Pálya 1',fee:(old&&old.fee)||getSezonFee(s.date)||DEF_FEE,coachId:(old&&old.coachId)||'',coachName:(old&&old.coachName)||'',saturday:true};
-  }
-  function courtArr674(s){
-    if(isSat674(s)) return [satCourt674(s)];
-    const c=s.courts||{};
-    return Object.entries(c).sort((a,b)=>a[0].localeCompare(b[0])).map(([id,x])=>({id,...x}));
-  }
-  function courtLabel674(s,c){
-    if(isSat674(s)) return 'Pálya 1';
-    const lvl=c&&c.level?(LVLS[c.level]||c.level):'';
-    return ((c&&c.name)||'Pálya 1')+(lvl?' – '+lvl:'');
-  }
-  function normalize674(sess){
-    if(!sess) return sess;
-    if(!sess.courts) sess.courts=buildCourtsForISO(sess.date);
-    if(isSat674(sess)){
-      sess.time=cleanTime674(sess);
-      sess.courts={court1:satCourt674(sess)};
-      Object.values(sess.applicants||{}).forEach(a=>{a.courtId='court1';a.mismatch=false;});
-      Object.values(sess.attended||{}).forEach(a=>{a.courtId='court1';});
-      return sess;
-    }
-    Object.values(sess.applicants||{}).forEach(a=>{ if(!a.courtId && !isMismatch(sess,a.level)) a.courtId=autoAssignCourt(sess,a.level); if(a.mismatch===undefined) a.mismatch=isMismatch(sess,a.level); });
-    Object.values(sess.attended||{}).forEach(a=>{ if(!a.courtId){ const app=(sess.applicants||{})[a.playerId]; a.courtId=app?(app.courtId||autoAssignCourt(sess,app.level)):'court1'; } });
-    return sess;
-  }
-  function activePlayers674(){return Object.values(players||{}).filter(p=>p&&p.active!==false).sort((a,b)=>(a.name||'').localeCompare((b.name||''),'hu'));}
-  function apps674(s,cid){return applList(s).filter(a=>applicantCourt(s,a)===cid).length;}
-  function added674(s,cid){return attList(s).filter(a=>a.courtId===cid&&!(s.applicants||{})[a.playerId]).length;}
-  function refresh674(){
-    try{if(document.getElementById('sec-home')?.classList.contains('active'))renderHome();}catch(e){}
-    try{if(document.getElementById('sec-jelenlét')?.classList.contains('active')){renderAttSel();renderAttForm();}}catch(e){}
-    try{if(document.getElementById('sec-edzo')?.classList.contains('active'))renderCoachWeek();}catch(e){}
-    try{if(document.getElementById('modal')&&!document.getElementById('modal').classList.contains('hidden')&&modalId&&sessions[modalId])openDayModal(sessions[modalId].date);}catch(e){}
-  }
-  function satBlock674(sess, context){
-    if(!isSat674(sess)) return '';
-    const sid=sess.id, time=cleanTime674(sess), staff=canEdit674(), editing=!!window.__satEdit674[sid] || (staff&&!time&&(context==='attendance'||context==='coach'));
-    const inputId='sat674-'+context+'-'+sid;
-    if(editing && staff){
-      return `<div class="sat674-box" data-sat674="${esc674(sid)}">
-        <div class="sat674-row"><span class="sat674-badge sat674-warn">⚠ Edzés még nincs megerősítve</span></div>
-        <div class="sat674-row"><span class="sat674-time">${time?esc674(time):SAT_PLACEHOLDER}</span><input class="sat674-input" id="${esc674(inputId)}" type="time" value="${esc674(time)}" onclick="event.stopPropagation()"><button class="btn btn-gold btn-sm" onclick="event.stopPropagation();saveSatTime674('${esc674(sid)}','${esc674(inputId)}')">Időpont mentése</button>${time?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();cancelSatEdit674('${esc674(sid)}')">Mégsem</button>`:''}</div>
-      </div>`;
-    }
-    if(!time){
-      return `<div class="sat674-box" data-sat674="${esc674(sid)}">
-        <div class="sat674-row"><span class="sat674-badge sat674-warn">⚠ Edzés még nincs megerősítve</span></div>
-        <div class="sat674-row"><span class="sat674-time">${SAT_PLACEHOLDER}</span>${staff?`<button class="btn btn-gold btn-sm" onclick="event.stopPropagation();editSatTime674('${esc674(sid)}')">Időpont megadása</button>`:''}</div>
-      </div>`;
-    }
-    return `<div class="sat674-box" data-sat674="${esc674(sid)}">
-      <div class="sat674-row"><span class="sat674-badge sat674-ok">✓ Edzés megerősítve</span></div>
-      <div class="sat674-row"><span class="sat674-badge sat674-ok">Mentve ✓ ${esc674(time)}</span>${staff?`<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSatTime674('${esc674(sid)}')">Időpont módosítása</button>`:''}</div>
-    </div>`;
-  }
-  window.editSatTime674=function(sid){window.__satEdit674[sid]=true; refresh674();};
-  window.cancelSatEdit674=function(sid){delete window.__satEdit674[sid]; refresh674();};
-  window.saveSatTime674=function(sid,inputId){
-    if(!canEdit674()){openStaffLogin('edzo',document.getElementById('nav-edzo'));return;}
-    const inp=document.getElementById(inputId);
-    const time=inp?String(inp.value||'').trim():'';
-    let s=normalize674((sessions||{})[sid]||{id:sid,date:sid.replace(/^auto_/,'').replace(/_/g,'-')});
-    s.time=time;
-    s.dur=s.dur||60;
-    s.courts={court1:satCourt674(s)};
-    s.applicants=s.applicants||{};
-    s.attended=s.attended||{};
-    s.isAuto=s.isAuto!==false;
-    s.status=s.status||'open';
-    return fbSet('sessions/'+sid,s).then(()=>{sessions[sid]=s; delete window.__satEdit674[sid]; toast(time?'Szombati időpont mentve.':'Szombati időpont törölve.'); refresh674();});
-  };
-  window.saveSaturdayTime67=function(sid){const inp=document.querySelector('[id^="sat674-"][id$="'+sid+'"]')||document.getElementById('sat-time-'+sid);return saveSatTime674(sid,inp?inp.id:null);};
-  window.saveHomeSatTime672=window.saveSaturdayTime67;
-  window.editSatTime673=window.editSatTime674;
-  window.saveSatTime673=window.saveSatTime674;
-  window.refreshSat673=refresh674;
+DEFAULT_WEEK[6]=[{id:'court1',name:'Pálya 1',saturday:true}];
+window.courtArray=courtArr;
+window.normalizeSession=function(sess){if(!sess)return sess;if(!sess.courts){sess.courts=buildCourtsForISO(sess.date);} if(isSatDate(sess)){return normSat(sess);} Object.values(sess.applicants||{}).forEach(a=>{ if(!a.courtId && !isMismatch(sess,a.level)) a.courtId=autoAssignCourt(sess,a.level); if(a.mismatch===undefined) a.mismatch=isMismatch(sess,a.level);});Object.values(sess.attended||{}).forEach(a=>{ if(!a.courtId){const app=(sess.applicants||{})[a.playerId];a.courtId=app?(app.courtId||autoAssignCourt(sess,app.level)):'court1';}});return sess;};
+window.buildCourtsForISO=function(iso){const dow=dayOfISO(iso), fee=getSezonFee(iso); if(dow===6)return {court1:{name:'Pálya 1',fee,coachId:'',coachName:'',saturday:true}}; const defs=DEFAULT_WEEK[dow]||[{id:'court1',name:'Pálya 1',level:'kezdo'}]; const out={}; defs.forEach(d=>out[d.id]={name:d.name,level:d.level,fee,coachId:'',coachName:'',saturday:!!d.saturday}); return out;};
+window.applicantCourt=function(sess,appl){if(isSatDate(sess))return 'court1';return appl.courtId||autoAssignCourt(sess,appl.level);};
+window.isMismatch=function(sess,level){if(isSatDate(sess))return false;return !courtArr(sess).some(c=>c.level===level);};
+window.autoAssignCourt=function(sess,level){if(isSatDate(sess))return 'court1';const c=courtArr(sess).find(c=>c.level===level);return c?c.id:null;};
+window.ensureAutoSession=function(iso){const id=autoId(iso), dow=dayOfISO(iso); if(sessions[id]){let s=normSat(normalizeSession(sessions[id])); if(dow===6 && (sessions[id].time==='18:00'||sessions[id].time==='14:00'||!sessions[id].courts||Object.values(sessions[id].courts||{})[0]?.level)){sessions[id]=s;return fbSet('sessions/'+id,s).then(()=>s);} if(!sessions[id].courts)return fbSet('sessions/'+id,s).then(()=>s);return Promise.resolve(s);} const sess={id,date:iso,time:dow===6?'':'18:00',dur:60,courts:buildCourtsForISO(iso),applicants:{},attended:{},isAuto:true,status:'open'};sessions[id]=sess;return fbSet('sessions/'+id,sess).then(()=>sess);};
 
-  window.buildCourtsForISO=function(iso){
-    const dow=dayOfISO(iso), fee=getSezonFee(iso);
-    if(dow===6) return {court1:{name:'Pálya 1',fee,coachId:'',coachName:'',saturday:true}};
-    const defs=DEFAULT_WEEK[dow]||[{id:'court1',name:'Pálya 1',level:'kezdo'}];
-    const out={}; defs.forEach(d=>out[d.id]={name:d.name,level:d.level,fee,coachId:'',coachName:'',saturday:!!d.saturday});
-    return out;
-  };
-  try{DEFAULT_WEEK[6]=[{id:'court1',name:'Pálya 1',saturday:true}];}catch(e){}
-  window.courtArray=courtArr674;
-  window.normalizeSession=normalize674;
-  window.applicantCourt=function(sess,appl){if(isSat674(sess))return 'court1';return appl.courtId||autoAssignCourt(sess,appl.level);};
-  window.isMismatch=function(sess,level){if(isSat674(sess))return false;return !courtArr674(sess).some(c=>c.level===level);};
-  window.autoAssignCourt=function(sess,level){if(isSat674(sess))return 'court1';const c=courtArr674(sess).find(c=>c.level===level);return c?c.id:null;};
-  window.ensureAutoSession=function(iso){
-    const id=autoId(iso), dow=dayOfISO(iso);
-    if(sessions[id]){
-      const s=normalize674(sessions[id]);
-      if(dow===6 && (sessions[id].time==='18:00'||sessions[id].time==='14:00'||Object.values(sessions[id].courts||{})[0]?.level)){
-        sessions[id]=s; return fbSet('sessions/'+id,s).then(()=>s);
-      }
-      if(!sessions[id].courts) return fbSet('sessions/'+id,s).then(()=>s);
-      return Promise.resolve(s);
-    }
-    const sess={id,date:iso,time:dow===6?'':'18:00',dur:60,courts:buildCourtsForISO(iso),applicants:{},attended:{},isAuto:true,status:'open'};
-    sessions[id]=sess; return fbSet('sessions/'+id,sess).then(()=>sess);
-  };
-  window.courtGroupHtml=function(sess){
-    sess=normalize674(sess);
-    const groups={}; courtArr674(sess).forEach(c=>groups[c.id]=[]);
-    const mismatch=[];
-    applList(sess).forEach(a=>{
-      const p=players[a.playerId]||{};
-      const cid=applicantCourt(sess,a);
-      const name=a.playerName||p.name||'Ismeretlen';
-      const level=a.level||a.playerLevel||p.level;
-      const item=`<div class="ach"><span>${esc674(name)}</span>${lv(level)}</div>`;
-      if(cid&&groups[cid])groups[cid].push(item); else if(!isSat674(sess))mismatch.push(item);
-    });
-    return courtArr674(sess).map(c=>`<h3>${esc674(courtLabel674(sess,c))} · Edző: ${esc674(c.coachName||staffName(c.coachId)||'nincs megadva')}</h3><div class="apl">${groups[c.id].join('')||'<span style="color:var(--mu);font-size:12px">Még senki</span>'}</div>`).join('')+
-      (mismatch.length?`<h3 style="color:var(--go);margin-top:8px">⚠️ Eltérő szintű jelentkezők</h3><div class="apl">${mismatch.join('')}</div>`:'');
-  };
+window.saveSaturdayTime67=function(sid){if(!hasStaffAccess()){openStaffLogin('edzések',document.getElementById('nav-edzesek'));return;}const inp=document.getElementById('sat-time-'+sid);const time=inp?inp.value:'';let s=normSat(normalizeSession(sessions[sid]||{}));s.time=time;s.courts={court1:satCourt(s)};fbSet('sessions/'+sid,s).then(()=>{toast(time?'Szombati időpont mentve.':'Szombati időpont törölve.');try{renderHome();}catch(_){}try{renderCoachWeek();}catch(_){}try{renderAttSel();}catch(_){}});};
+function satTimeEditor(s){if(!hasStaffAccess()||!isSatDate(s))return '';return '<div class="sat-time-edit"><input type="time" id="sat-time-'+e(s.id)+'" value="'+e(cleanSatTime(s))+'"><button class="btn btn-gold btn-sm" onclick="saveSaturdayTime67(\''+e(s.id)+'\')">Időpont mentése</button></div>';}
 
-  window.applyDayModal=function(iso){
-    const pid=document.getElementById('home-player')?.value, level=document.getElementById('home-level')?.value;
-    if(!pid){alert('Válassz játékost!');return;}
-    if(!level){alert('A játékos szintje nincs beállítva. Szólj az adminnak.');return;}
-    const sid=autoId(iso), sess=normalize674(sessions[sid]);
-    if(sess.applicants&&sess.applicants[pid]){toast('Már be vagy jelentkezve!');return;}
-    const p=players[pid]||{};
-    const cid=isSat674(sess)?'court1':autoAssignCourt(sess,level);
-    const app={playerId:pid,playerName:p.name||'',level,playerLevel:level,courtId:cid,mismatch:!cid};
-    fbSet('sessions/'+sid+'/applicants/'+pid,app).then(()=>{document.getElementById('modal').classList.add('hidden'); toast(cid?'Sikeres bejelentkezés!':'Sikeres bejelentkezés – edzői besorolás szükséges.');});
+window.courtGroupHtml=function(sess){sess=normSat(normalizeSession(sess));const groups={};courtArr(sess).forEach(c=>groups[c.id]=[]);const mismatch=[];applList(sess).forEach(a=>{const p=players[a.playerId];if(!p)return;const cid=applicantCourt(sess,a);const item='<div class="ach"><span>'+e(p.name)+'</span>'+lv(a.level)+'</div>';if(cid&&groups[cid])groups[cid].push(item);else if(!isSatDate(sess))mismatch.push(item);});return courtArr(sess).map(c=>'<h3>'+courtLbl(sess,c)+(c.coachName||staffName(c.coachId)?' · Edző: '+e(c.coachName||staffName(c.coachId)):'')+'</h3><div class="apl">'+(groups[c.id].join('')||'<span style="color:var(--mu);font-size:12px">Még senki</span>')+'</div>').join('')+(mismatch.length?'<h3 style="color:var(--go);margin-top:8px">⚠️ Eltérő szintű jelentkezők</h3><div class="apl">'+mismatch.join('')+'</div>':'');};
+
+window.openDayModal=function(iso){modalId=autoId(iso);ensureAutoSession(iso).then(sess=>{sess=normSat(normalizeSession(sess));const pid=document.getElementById('home-player').value||null;const d=new Date(iso),dow=d.getDay(),dayName=DAYS_L[dow===0?6:dow-1];document.getElementById('m-title').textContent=dayName+', '+fmtDate(iso);document.getElementById('m-sub').textContent=showTime(sess)+' · '+(sess.dur||60)+' perc · '+courtArr(sess).length+' pálya';document.getElementById('m-bars').innerHTML='';document.getElementById('m-appl').innerHTML='<h3>Jelentkezők pályánként</h3>'+courtGroupHtml(sess);const actEl=document.getElementById('m-act');if(pid){const already=sess.applicants&&sess.applicants[pid];actEl.innerHTML=already?'<button class="btn btn-red" onclick="cancelDayModal(\''+iso+'\')">✗ Lemondás</button><span style="color:var(--lime);font-size:13px;align-self:center">✓ Be vagy jelentkezve</span>':'<button class="btn btn-lime" onclick="applyDayModal(\''+iso+'\')">✔ Bejelentkezem</button>';}else actEl.innerHTML='<p style="color:var(--mu);font-size:12px">Válassz játékost.</p>';document.getElementById('modal').classList.remove('hidden');});};
+window.applyDayModal=function(iso){const pid=document.getElementById('home-player').value, level=document.getElementById('home-level').value;if(!pid){alert('Válassz játékost!');return;}if(!level){alert('Add meg a szintedet!');return;}const sid=autoId(iso), sess=normSat(normalizeSession(sessions[sid]));if(sess.applicants&&sess.applicants[pid]){toast('Már be vagy jelentkezve!');return;}const cid=isSatDate(sess)?'court1':autoAssignCourt(sess,level);const app={playerId:pid,level,courtId:cid,mismatch:!cid};fbSet('sessions/'+sid+'/applicants/'+pid,app).then(()=>{document.getElementById('modal').classList.add('hidden');toast(cid?'Sikeres bejelentkezés!':'Sikeres bejelentkezés – edzői besorolás szükséges.');});};
+
+window.renderHome=function(){const today=new Date();today.setHours(0,0,0,0);const mon=monday(new Date(today.getTime()+calOff*7*86400000));document.getElementById('home-cal-lbl').textContent=weekLabel(mon);const pid=document.getElementById('home-player').value||null;const isos=[];for(let i=0;i<6;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}Promise.all(isos.map(ensureAutoSession)).then(()=>{let html='';for(let i=0;i<6;i++){const day=new Date(mon);day.setDate(mon.getDate()+i);const iso=isos[i],sid=autoId(iso),sess=normSat(normalizeSession(sessions[sid]));const sat=isSatDate(sess);const hasMe=pid&&sess.applicants&&sess.applicants[pid];const cnts=courtCounts(sess);html+='<div class="wk-day'+(iso===toISO(today)?' today':'')+(hasMe?' has-me':'')+'" onclick="openDayModal(\''+iso+'\')">'+(hasMe?'<div class="wk-me-badge">✓ Jelsz.</div>':'')+'<div class="wk-day-head"><div class="wk-dn">'+DAYS_S[i]+'</div><div class="wk-dd">'+day.getDate()+'</div></div><div class="wk-body"><div class="wk-time">'+e(showTime(sess))+'</div>'+courtArr(sess).map(c=>'<div style="border-top:1px solid var(--b1);padding-top:4px;margin-top:4px"><div class="wk-court">'+courtLbl(sess,c)+'</div><div class="wk-count">'+(cnts.out[c.id]||0)+' jelentkező</div><div class="wk-no">'+e(c.coachName||staffName(c.coachId)||'Edző nincs megadva')+'</div></div>').join('')+(!sat&&cnts.mismatch?'<div style="margin-top:5px;color:var(--go);font-size:10px">⚠️ Eltérő szintű: '+cnts.mismatch+'</div>':'')+'</div></div>';}document.getElementById('home-wk').innerHTML=html;});};
+
+function collectSessions67(){const today=new Date();today.setHours(0,0,0,0);const start=new Date(today);start.setDate(today.getDate()-21);const end=new Date(today);end.setDate(today.getDate()+60);const by={};for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){const dow=d.getDay();if(dow>=1&&dow<=6){const iso=toISO(d),id=autoId(iso);if(!sessions[id])sessions[id]={id,date:iso,time:dow===6?'':'18:00',dur:60,courts:buildCourtsForISO(iso),applicants:{},attended:{},isAuto:true,status:'open'};by[id]=normSat(normalizeSession(sessions[id]));}}allSessions().forEach(s=>{const ns=normSat(normalizeSession(s));by[ns.id]=ns;});return Object.values(by).sort((a,b)=>(a.date+(a.time||''))>(b.date+(b.time||''))?1:-1);}
+function findRel67(list){if(!list.length)return 0;const today=new Date();today.setHours(0,0,0,0);let i=list.findIndex(s=>{let d=new Date(s.date);d.setHours(0,0,0,0);return d.getTime()===today.getTime();});if(i>=0)return i;i=list.findIndex(s=>{let d=new Date(s.date);d.setHours(0,0,0,0);return d.getTime()>today.getTime();});return i>=0?i:list.length-1;}
+window.renderAttSel=function(){window.__attDaySessions654=collectSessions67();if(typeof window.__attDayIndex654!=='number')window.__attDayIndex654=findRel67(window.__attDaySessions654);if(window.__attDayIndex654<0)window.__attDayIndex654=0;if(window.__attDayIndex654>=window.__attDaySessions654.length)window.__attDayIndex654=window.__attDaySessions654.length-1;let w=document.getElementById('att-form-wrap');if(w)w.style.display='none';renderAttForm();};
+window.goAttToday=function(){window.__attDaySessions654=collectSessions67();window.__attDayIndex654=findRel67(window.__attDaySessions654);renderAttForm();};
+window.moveAttDay=function(delta){if(!window.__attDaySessions654||!window.__attDaySessions654.length)window.__attDaySessions654=collectSessions67();window.__attDayIndex654=Math.max(0,Math.min(window.__attDaySessions654.length-1,(window.__attDayIndex654||0)+delta));renderAttForm();};
+
+window.renderAttForm=function(){const el=document.getElementById('att-form');if(!el)return;if(!window.__attDaySessions654||!window.__attDaySessions654.length)window.__attDaySessions654=collectSessions67();const arr=window.__attDaySessions654;if(!arr.length){el.innerHTML='<div class="empty"><div class="ic">📋</div><p>Nincs kezelhető edzés.</p></div>';return;}const s=normSat(normalizeSession(arr[window.__attDayIndex654||0]));const closed=s.status==='closed',dis=closed&&!isAdmin,date=new Date(s.date),days=['VASÁRNAP','HÉTFŐ','KEDD','SZERDA','CSÜTÖRTÖK','PÉNTEK','SZOMBAT'],courts=courtArr(s),sat=isSatDate(s);const closeBtn=closed?(isAdmin?'<button class="btn btn-gold btn-sm" onclick="unlockSession(\''+s.id+'\')">Admin feloldás</button>':'<span class="badge bg-g">Lezárt</span>'):'<button class="btn btn-lime btn-sm" onclick="saveAtt(\''+s.id+'\')">🔒 Edzés lezárása</button>';let html='<div class="card" style="max-width:760px;margin-left:auto;margin-right:auto"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><button class="btn-nav" onclick="moveAttDay(-1)">←</button><div style="text-align:center;flex:1"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.35rem;letter-spacing:2px;color:var(--lime)">'+e(fmtDate(s.date).toUpperCase()+' · '+days[date.getDay()])+'</div></div><div style="display:flex;gap:8px;align-items:center"><button class="btn-nav" onclick="moveAttDay(1)">→</button><button class="btn btn-ghost btn-sm" onclick="goAttToday()">Mai / aktuális</button></div></div><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px"><div><div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.1rem;letter-spacing:2px;color:var(--lime)">'+e(showTime(s))+' · '+courts.length+' pálya</div><div style="color:var(--mu);font-size:12px">'+(closed?'🔒 Lezárt edzés – csak admin módosíthatja':'Pipáld be a tényleges megjelenteket.')+'</div>'+(sat&&!cleanSatTime(s)?'<span class="sat-status">Időpont később</span>':'')+(sat?satTimeEditor(s):'')+'</div>'+closeBtn+'</div>';const apps=applList(s),atts=attList(s);courts.forEach(c=>{const assigned=apps.filter(a=>applicantCourt(s,a)===c.id),extras=atts.filter(a=>a.courtId===c.id&&!(s.applicants||{})[a.playerId]),rows=[...assigned.map(a=>({type:'app',a})),...extras.map(a=>({type:'extra',a}))];let checked=rows.filter(r=>(s.attended||{})[r.a.playerId]&&(s.attended||{})[r.a.playerId].courtId===c.id).length;let per=checked?Math.round((c.fee||DEF_FEE)/checked):null;html+='<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>'+courtLbl(s,c)+' · '+((c.fee||DEF_FEE).toLocaleString('hu-HU'))+' Ft '+(per?'→ '+per.toLocaleString('hu-HU')+' Ft/fő':'')+'</h3><div class="count-line">Jelentkezett: <strong>'+applicantsOn(s,c.id)+'</strong> | Hozzáadott: <strong>'+addedOn(s,c.id)+'</strong></div>'+coachBlock(s,c)+'<div class="cg">';if(rows.length){html+=rows.map(row=>{const a=row.a,p=(players||{})[a.playerId]||{},pid=a.playerId,name=a.playerName||p.name||pid,level=a.level||a.playerLevel||p.level||'',chk=(s.attended||{})[pid];const del=row.type==='extra'&&!dis?'<button class="extra-remove" onclick="event.preventDefault();event.stopPropagation();removeExtraAtt661(\''+e(s.id)+'\',\''+e(pid)+'\')">Törlés</button>':'';return '<label class="ci'+(chk?' chk':'')+'" onclick="event.preventDefault(); toggleAtt(this)" data-pid="'+e(pid)+'" data-court="'+e(c.id)+'"><input type="checkbox" '+(chk?'checked':'')+' '+(dis?'disabled':'')+'><span class="cm"></span><span>'+e(name)+'</span>'+lv(level)+'<span style="font-size:10px;color:'+(row.type==='extra'?'var(--go)':'var(--lime)')+'">'+(row.type==='extra'?'utólag hozzáadva':'✓ jel.')+'</span>'+del+'</label>';}).join('');}else html+='<span style="color:var(--mu);font-size:12px">Nincs ide sorolt bejelentkező.</span>';html+='</div></div>';});const mismatch=sat?[]:apps.filter(a=>!applicantCourt(s,a));if(mismatch.length){html+='<div style="margin-top:12px;padding:12px;border:1px solid rgba(245,200,66,.35);border-radius:12px;background:rgba(245,200,66,.05)"><h3 style="color:var(--go)">⚠️ Eltérő szintű jelentkezők</h3>'+mismatch.map(a=>{const p=(players||{})[a.playerId]||{},pid=a.playerId,chk=(s.attended||{})[pid];return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><label class="ci'+(chk?' chk':'')+'" onclick="event.preventDefault(); toggleAtt(this)" data-pid="'+e(pid)+'" data-court=""><input type="checkbox" '+(chk?'checked':'')+' '+(dis?'disabled':'')+'><span class="cm"></span><span>'+e(a.playerName||p.name||pid)+'</span>'+lv(a.level||a.playerLevel||p.level)+'</label><select data-assign-pid="'+e(pid)+'" '+(dis?'disabled':'')+'>'+courts.map(c=>'<option value="'+e(c.id)+'">'+courtLbl(s,c)+'</option>').join('')+'</select></div>';}).join('')+'</div>';}const extraOpts=activePlayers67().filter(p=>!(s.applicants||{})[p.id]&&!(s.attended||{})[p.id]);html+='<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>Be nem jelentkezett, de megjelent játékos hozzáadása</h3><div class="fr"><div class="fg w"><select id="extra-player" '+(dis?'disabled':'')+'><option value="">— Válassz játékost —</option>'+extraOpts.map(p=>'<option value="'+e(p.id)+'">'+e(p.name)+(p.level?' – '+(LVLS[p.level]||p.level):'')+'</option>').join('')+'</select></div><div class="fg"><select id="extra-court" '+(dis?'disabled':'')+'>'+courts.map(c=>'<option value="'+e(c.id)+'">'+courtLbl(s,c)+'</option>').join('')+'</select></div><button class="btn btn-gold" onclick="addExtraAtt(\''+s.id+'\')" '+(dis?'disabled':'')+'>+ Hozzáadás</button></div><div class="v6-note">A hozzáadott játékos ugyanúgy beleszámít a pályadíjba.</div></div>'+(closed&&isAdmin?'<div style="text-align:right;margin-top:10px"><button class="btn btn-gold btn-sm" onclick="unlockSession(\''+s.id+'\')">Admin feloldás</button></div>':'<div style="text-align:right;margin-top:10px">'+(!closed?'<button class="btn btn-lime btn-sm" onclick="saveAtt(\''+s.id+'\')">🔒 Edzés lezárása</button>':'')+'</div>')+'</div>';el.innerHTML=html;};
+
+window.addExtraAtt=function(sid){const pid=document.getElementById('extra-player').value;let cid=document.getElementById('extra-court').value;const s=normSat(normalizeSession(sessions[sid]||{}));if(isSatDate(s))cid='court1';if(!pid||!cid){toast('Válassz játékost és pályát.');return;}const p=players[pid]||{};fbSet('sessions/'+sid+'/attended/'+pid,{playerId:pid,playerName:p.name||'',playerLevel:p.level||'',courtId:cid,extra:true}).then(()=>{toast('Játékos hozzáadva a jelenléthez.');renderAttSel();});};
+
+window.saveAtt=function(sid){if(!hasStaffAccess()){openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));return;}const s=normSat(normalizeSession(sessions[sid]));const att={};document.querySelectorAll('.ci input:checked').forEach(inp=>{const lab=inp.closest('.ci');const pid=lab.dataset.pid;let cid=lab.dataset.court;const sel=document.querySelector('select[data-assign-pid="'+pid+'"]');if(sel)cid=sel.value;if(isSatDate(s))cid='court1';if(pid&&cid){const p=players[pid]||{},app=(s.applicants||{})[pid]||{};att[pid]={playerId:pid,playerName:app.playerName||p.name||'',playerLevel:app.level||app.playerLevel||p.level||'',courtId:cid,extra:!!((s.attended||{})[pid]||{}).extra};}});const lines=courtArr(s).map(c=>{const n=Object.values(att).filter(a=>a.courtId===c.id).length;return courtLbl(s,c)+': '+n+' fő';}).join('\n');if(!confirm('Minden jelenlét rögzítve van?\n\n'+lines+'\n\nLezárod az edzést?'))return;fbSet('sessions/'+sid+'/attended',Object.keys(att).length?att:null).then(()=>fbSet('sessions/'+sid+'/status','closed')).then(()=>{toast('Edzés lezárva.');renderAttSel();});};
+
+const oldRenderCoachWeek67=window.renderCoachWeek;window.renderCoachWeek=function(){if(!document.getElementById('coach-grid')){if(oldRenderCoachWeek67)return oldRenderCoachWeek67();return;}const today=new Date();today.setHours(0,0,0,0);const mon=monday(new Date(today.getTime()+coachOff*7*86400000));document.getElementById('coach-lbl').textContent=weekLabel(mon);const isos=[];for(let i=0;i<6;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}Promise.all(isos.map(ensureAutoSession)).then(()=>{let html='';for(let i=0;i<6;i++){const iso=isos[i],sess=normSat(normalizeSession(sessions[autoId(iso)])),sat=isSatDate(sess);html+='<div class="cdc'+(iso===toISO(today)?' today':'')+'"><div class="cdch"><div class="cdcn">'+DAYS_L[i]+'</div><div class="cdcd">'+fmtShort(iso)+'</div></div>'+courtArr(sess).map(c=>{const apps=applList(sess).filter(a=>applicantCourt(sess,a)===c.id),added=addedOn(sess,c.id);return '<div class="csb"><div class="cst">'+showTime(sess)+' · '+courtLbl(sess,c)+'</div><div class="csc2">'+(sat?'':((LVLS[c.level]||'')+' · '))+((c.fee||DEF_FEE).toLocaleString('hu-HU'))+' Ft · Edző: '+e(c.coachName||staffName(c.coachId)||'—')+' · Jelentkezett: '+apps.length+' | Hozzáadott: '+added+'</div>'+ (sat?satTimeEditor(sess):'') +'<div class="cnm">'+(apps.map(a=>players[a.playerId]?.name).filter(Boolean).join(', ')||'Nincs bejelentkező')+'</div></div>';}).join('')+'</div>';}document.getElementById('coach-grid').innerHTML=html;});};
+setTimeout(()=>{try{const t=document.querySelector('.logo em');if(t)t.textContent='Felnőtt Tenisz V6.7';if(document.getElementById('sec-home')?.classList.contains('active'))renderHome();if(document.getElementById('sec-jelenlet')?.classList.contains('active'))renderAttSel();if(document.getElementById('sec-edzo')?.classList.contains('active'))renderCoachWeek();}catch(err){console.error(err);}},150);
+})();
+</script>
+
+
+<style id="v6-7-2-sat-time-clean-css">
+.sat-time-control{margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sat-time-control input[type="time"]{width:105px;padding:6px 7px;border-radius:8px;font-size:12px}
+.sat-saved-ok{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;background:rgba(57,211,83,.13);border:1px solid rgba(57,211,83,.35);color:var(--lime);font-size:11px;font-weight:900;letter-spacing:.2px}
+.sat-later-note{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:rgba(245,200,66,.09);border:1px solid rgba(245,200,66,.35);color:var(--go);font-size:11px;font-weight:900;letter-spacing:.2px}
+.sat-time-control .btn-sm{padding:5px 8px;font-size:11px}
+</style>
+<script id="v6-7-2-sat-time-clean-patch">
+(function(){
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+  function isSat(s){var d=new Date((s&&s.date)||s);return d.getDay()===6;}
+  function cleanTime(s){var t=String((s&&s.time)||'').trim();return (!t||t==='18:00'||t==='14:00')?'':t;}
+  function dispTime(s){return isSat(s)?(cleanTime(s)||'Időpont később'):(s.time||'18:00');}
+  function satCourt(s){var old=(s&&s.courts)?(Array.isArray(s.courts)?s.courts[0]:Object.values(s.courts)[0]):{};return {id:(old&&old.id)||'court1',name:'Pálya 1',fee:(old&&old.fee)||getSezonFee(s.date)||DEF_FEE,coachId:(old&&old.coachId)||'',coachName:(old&&old.coachName)||'',saturday:true};}
+  function normS(s){if(!s)return s; if(!isSat(s))return (typeof normalizeSession==='function'?normalizeSession(s):s); s=(typeof normalizeSession==='function'?normalizeSession(s):s); s.time=cleanTime(s); s.courts={court1:satCourt(s)}; return s;}
+  function courts(s){if(isSat(s))return [satCourt(s)]; return typeof courtArray==='function'?courtArray(s):Object.entries(s.courts||{}).map(function(x){return Object.assign({id:x[0]},x[1]);});}
+  function cLabel(s,c){if(isSat(s))return 'Pálya 1'; var lvl=c&&c.level?(LVLS[c.level]||c.level):''; return ((c&&c.name)||'Pálya 1')+(lvl?' – '+lvl:'');}
+  function canEdit(){return typeof hasStaffAccess==='function'&&hasStaffAccess();}
+  function appsOn(s,cid){return applList(s).filter(function(a){return applicantCourt(s,a)===cid;}).length;}
+  function addedOn2(s,cid){return attList(s).filter(function(a){return a.courtId===cid && !(s.applicants||{})[a.playerId];}).length;}
+  function control(s){
+    if(!isSat(s))return '';
+    var sid=s.id,t=cleanTime(s);
+    if(!canEdit())return '';
+    if(t){return '<div class="sat-time-control" id="sat-time-box-'+esc(sid)+'"><span class="sat-saved-ok">Mentve ✓ '+esc(t)+'</span><button class="btn btn-ghost btn-sm" onclick="editSatTime672(\''+esc(sid)+'\');event.stopPropagation();">Időpont módosítása</button></div>';}
+    return '<div class="sat-time-control" id="sat-time-box-'+esc(sid)+'"><span class="sat-later-note">Időpont később</span><input type="time" id="sat-time-'+esc(sid)+'" onclick="event.stopPropagation()"><button class="btn btn-gold btn-sm" onclick="saveSaturdayTime67(\''+esc(sid)+'\');event.stopPropagation();">Időpont mentése</button></div>';
+  }
+  window.editSatTime672=function(sid){var box=document.getElementById('sat-time-box-'+sid);var s=normS(sessions[sid]||{});if(!box)return;box.innerHTML='<input type="time" id="sat-time-'+esc(sid)+'" value="'+esc(cleanTime(s))+'" onclick="event.stopPropagation()"><button class="btn btn-gold btn-sm" onclick="saveSaturdayTime67(\''+esc(sid)+'\');event.stopPropagation();">Időpont mentése</button><button class="btn btn-ghost btn-sm" onclick="refreshSatViews672();event.stopPropagation();">Mégsem</button>';};
+  window.saveSaturdayTime67=function(sid){
+    if(!canEdit()){openStaffLogin('edzések',document.getElementById('nav-edzesek'));return;}
+    var inp=document.getElementById('sat-time-'+sid);var time=inp?inp.value:'';var s=normS(sessions[sid]||{});s.time=time;s.courts={court1:satCourt(s)};s.dur=s.dur||60;s.applicants=s.applicants||{};s.attended=s.attended||{};s.isAuto=s.isAuto!==false;s.status=s.status||'open';
+    fbSet('sessions/'+sid,s).then(function(){toast(time?'Szombati időpont mentve.':'Szombati időpont törölve.');refreshSatViews672();});
   };
-  window.openDayModal=function(iso){
-    modalId=autoId(iso);
-    ensureAutoSession(iso).then(sess=>{
-      sess=normalize674(sess);
-      const pid=document.getElementById('home-player')?.value||null;
-      const d=new Date(iso), dow=d.getDay(), dayName=DAYS_L[dow===0?6:dow-1];
-      document.getElementById('m-title').textContent=`${dayName}, ${fmtDate(iso)}`;
-      document.getElementById('m-sub').innerHTML=`${esc674(displayTime674(sess))} · ${sess.dur||60} perc · ${courtArr674(sess).length} pálya${isSat674(sess)?satBlock674(sess,'modal'):''}`;
-      document.getElementById('m-bars').innerHTML='';
-      document.getElementById('m-appl').innerHTML=`<h3>Jelentkezők pályánként</h3>${courtGroupHtml(sess)}`;
-      const actEl=document.getElementById('m-act');
-      if(pid){
-        const already=sess.applicants&&sess.applicants[pid];
-        actEl.innerHTML=already?`<button class="btn btn-red" onclick="cancelDayModal('${iso}')">✗ Lemondás</button><span style="color:var(--lime);font-size:13px;align-self:center">✓ Be vagy jelentkezve</span>`:`<button class="btn btn-lime" onclick="applyDayModal('${iso}')">✔ Bejelentkezem</button>`;
-      } else actEl.innerHTML='<p style="color:var(--mu);font-size:12px">Válassz játékost.</p>';
-      document.getElementById('modal').classList.remove('hidden');
-    });
-  };
+  window.refreshSatViews672=function(){try{renderHome();}catch(e){}try{renderCoachWeek();}catch(e){}try{renderAttSel();}catch(e){}setTimeout(cleanLegacySatEditors672,80);};
+  window.cleanLegacySatEditors672=function(){document.querySelectorAll('.sat-time-edit').forEach(function(el){var inp=el.querySelector('input[id^="sat-time-"]');if(!inp)return;var sid=inp.id.replace('sat-time-','');var s=normS(sessions[sid]||{});if(isSat(s)){var holder=document.createElement('div');holder.innerHTML=control(s);el.replaceWith(holder.firstElementChild||holder);}});};
 
   window.renderHome=function(){
-    const today=new Date(); today.setHours(0,0,0,0);
-    const mon=monday(new Date(today.getTime()+calOff*7*86400000));
-    const lbl=document.getElementById('home-cal-lbl'); if(lbl)lbl.textContent=weekLabel(mon);
-    const pid=document.getElementById('home-player')?.value||null;
-    const isos=[]; for(let i=0;i<6;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}
-    Promise.all(isos.map(ensureAutoSession)).then(()=>{
-      let html='';
-      for(let i=0;i<6;i++){
-        const day=new Date(mon); day.setDate(mon.getDate()+i);
-        const iso=isos[i], sid=autoId(iso), sess=normalize674(sessions[sid]), sat=isSat674(sess);
-        const hasMe=pid&&sess.applicants&&sess.applicants[pid];
-        const cnts=courtCounts(sess);
-        html+=`<div class="wk-day${iso===toISO(today)?' today':''}${hasMe?' has-me':''}" onclick="openDayModal('${iso}')">
-          ${hasMe?'<div class="wk-me-badge">✓ Jel.</div>':''}
-          <div class="wk-day-head"><div class="wk-dn">${DAYS_S[i]}</div><div class="wk-dd">${day.getDate()}</div></div>
-          <div class="wk-body">
-            <div class="wk-time">${esc674(displayTime674(sess))}</div>
-            ${sat?satBlock674(sess,'home'):''}
-            ${courtArr674(sess).map(c=>`<div style="border-top:1px solid var(--b1);padding-top:4px;margin-top:4px"><div class="wk-court">${esc674(courtLabel674(sess,c))}</div><div class="wk-count">${cnts.out[c.id]||0} jelentkező</div><div class="wk-no">${esc674(c.coachName||staffName(c.coachId)||'Edző nincs megadva')}</div></div>`).join('')}
-            ${(!sat&&cnts.mismatch)?`<div style="margin-top:5px;color:var(--go);font-size:10px">⚠️ Eltérő szintű: ${cnts.mismatch}</div>`:''}
-          </div>
-        </div>`;
-      }
-      const hw=document.getElementById('home-wk'); if(hw)hw.innerHTML=html;
+    var today=new Date();today.setHours(0,0,0,0);var mon=monday(new Date(today.getTime()+calOff*7*86400000));var lbl=document.getElementById('home-cal-lbl');if(lbl)lbl.textContent=weekLabel(mon);var pid=document.getElementById('home-player')&&document.getElementById('home-player').value||null;var isos=[];for(var i=0;i<6;i++){var d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}
+    Promise.all(isos.map(ensureAutoSession)).then(function(){var html='';for(var i=0;i<6;i++){var day=new Date(mon);day.setDate(mon.getDate()+i);var iso=isos[i],sid=autoId(iso),sess=normS(sessions[sid]);var sat=isSat(sess);var hasMe=pid&&sess.applicants&&sess.applicants[pid];var cnts=courtCounts(sess);html+='<div class="wk-day'+(iso===toISO(today)?' today':'')+(hasMe?' has-me':'')+'" onclick="openDayModal(\''+iso+'\')">'+(hasMe?'<div class="wk-me-badge">✓ Jelsz.</div>':'')+'<div class="wk-day-head"><div class="wk-dn">'+DAYS_S[i]+'</div><div class="wk-dd">'+day.getDate()+'</div></div><div class="wk-body"><div class="wk-time">'+esc(dispTime(sess))+'</div>'+courts(sess).map(function(c){return '<div style="border-top:1px solid var(--b1);padding-top:4px;margin-top:4px"><div class="wk-court">'+esc(cLabel(sess,c))+'</div><div class="wk-count">'+((cnts.out&&cnts.out[c.id])||0)+' jelentkező</div><div class="wk-no">'+esc(c.coachName||staffName(c.coachId)||'Edző nincs megadva')+'</div></div>';}).join('')+(sat?control(sess):(!sat&&cnts.mismatch?'<div style="margin-top:5px;color:var(--go);font-size:10px">⚠️ Eltérő szintű: '+cnts.mismatch+'</div>':''))+'</div></div>';}
+      var wrap=document.getElementById('home-wk');if(wrap)wrap.innerHTML=html;
     });
-  };
-
-  function collectSessions674(){
-    const today=new Date();today.setHours(0,0,0,0);
-    const start=new Date(today);start.setDate(today.getDate()-21);
-    const end=new Date(today);end.setDate(today.getDate()+60);
-    const by={};
-    for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
-      const dow=d.getDay();
-      if(dow>=1&&dow<=6){const iso=toISO(d),id=autoId(iso); if(!sessions[id])sessions[id]={id,date:iso,time:dow===6?'':'18:00',dur:60,courts:buildCourtsForISO(iso),applicants:{},attended:{},isAuto:true,status:'open'}; by[id]=normalize674(sessions[id]);}
-    }
-    allSessions().forEach(s=>{const ns=normalize674(s);by[ns.id]=ns;});
-    return Object.values(by).sort((a,b)=>(a.date+(a.time||''))>(b.date+(b.time||''))?1:-1);
-  }
-  function findRel674(list){
-    if(!list.length)return 0; const today=new Date();today.setHours(0,0,0,0);
-    let i=list.findIndex(s=>{let d=new Date(s.date);d.setHours(0,0,0,0);return d.getTime()===today.getTime();});
-    if(i>=0)return i;
-    i=list.findIndex(s=>{let d=new Date(s.date);d.setHours(0,0,0,0);return d.getTime()>today.getTime();});
-    return i>=0?i:list.length-1;
-  }
-  window.renderAttSel=function(){
-    window.__attDaySessions654=collectSessions674();
-    if(typeof window.__attDayIndex654!=='number')window.__attDayIndex654=findRel674(window.__attDaySessions654);
-    if(window.__attDayIndex654<0)window.__attDayIndex654=0;
-    if(window.__attDayIndex654>=window.__attDaySessions654.length)window.__attDayIndex654=window.__attDaySessions654.length-1;
-    const w=document.getElementById('att-form-wrap'); if(w)w.style.display='none';
-    renderAttForm();
-  };
-  window.goAttToday=function(){window.__attDaySessions654=collectSessions674();window.__attDayIndex654=findRel674(window.__attDaySessions654);renderAttForm();};
-  window.moveAttDay=function(delta){if(!window.__attDaySessions654||!window.__attDaySessions654.length)window.__attDaySessions654=collectSessions674();window.__attDayIndex654=Math.max(0,Math.min(window.__attDaySessions654.length-1,(window.__attDayIndex654||0)+delta));renderAttForm();};
-  window.removeExtraAtt661=function(sid,pid){if(!canEdit674()){openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));return;}const p=(players||{})[pid]||{}; if(!confirm('Biztosan törlöd '+(p.name||'ezt a játékost')+' az utólag hozzáadott jelenlétből?'))return; fbRemove('sessions/'+sid+'/attended/'+pid).then(()=>{toast('Utólag hozzáadott jelenlét törölve.');renderAttSel();});};
-
-  window.renderAttForm=function(){
-    const el=document.getElementById('att-form'); if(!el)return;
-    if(!window.__attDaySessions654||!window.__attDaySessions654.length)window.__attDaySessions654=collectSessions674();
-    const arr=window.__attDaySessions654||[];
-    if(!arr.length){el.innerHTML='<div class="empty"><div class="ic">📋</div><p>Nincs kezelhető edzés.</p></div>';return;}
-    const s=normalize674(arr[window.__attDayIndex654||0]);
-    if(!s){el.innerHTML='';return;}
-    const closed=s.status==='closed', dis=closed&&!isAdmin, date=new Date(s.date), days=['VASÁRNAP','HÉTFŐ','KEDD','SZERDA','CSÜTÖRTÖK','PÉNTEK','SZOMBAT'], courts=courtArr674(s), sat=isSat674(s);
-    const closeBtn=closed?(isAdmin?`<button class="btn btn-gold btn-sm" onclick="unlockSession('${s.id}')">Admin feloldás</button>`:`<span class="badge bg-g">Lezárt</span>`):`<button class="btn btn-lime btn-sm" onclick="saveAtt('${s.id}')">🔒 Edzés lezárása</button>`;
-    let html=`<div class="card" style="max-width:760px;margin-left:auto;margin-right:auto">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
-        <button class="btn-nav" onclick="moveAttDay(-1)">←</button>
-        <div style="text-align:center;flex:1"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.35rem;letter-spacing:2px;color:var(--lime)">${esc674(fmtDate(s.date).toUpperCase()+' · '+days[date.getDay()])}</div></div>
-        <div style="display:flex;gap:8px;align-items:center"><button class="btn-nav" onclick="moveAttDay(1)">→</button><button class="btn btn-ghost btn-sm" onclick="goAttToday()">Mai / aktuális</button></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <div><div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;color:var(--lime)">${esc674(displayTime674(s))} · ${courts.length} pálya</div><div style="color:var(--mu);font-size:12px">${closed?'🔒 Lezárt edzés – csak admin módosíthatja':'Pipáld be a tényleges megjelenteket.'}</div>${sat?satBlock674(s,'attendance'):''}</div>${closeBtn}
-      </div>`;
-    const apps=applList(s), atts=attList(s);
-    courts.forEach(c=>{
-      const assigned=apps.filter(a=>applicantCourt(s,a)===c.id), extras=atts.filter(a=>a.courtId===c.id&&!(s.applicants||{})[a.playerId]), rows=[...assigned.map(a=>({type:'app',a})),...extras.map(a=>({type:'extra',a}))];
-      const checked=rows.filter(r=>(s.attended||{})[r.a.playerId]&&(s.attended||{})[r.a.playerId].courtId===c.id).length;
-      const per=checked?Math.round((c.fee||DEF_FEE)/checked):null;
-      html+=`<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>${esc674(courtLabel674(s,c))} · ${(c.fee||DEF_FEE).toLocaleString('hu-HU')} Ft ${per?`→ ${per.toLocaleString('hu-HU')} Ft/fő`:''}</h3><div class="count-line">Jelentkezett: <strong>${apps674(s,c.id)}</strong> | Hozzáadott: <strong>${added674(s,c.id)}</strong></div>${coachBlock(s,c)}<div class="cg">`;
-      if(rows.length){
-        html+=rows.map(row=>{const a=row.a,p=(players||{})[a.playerId]||{},pid=a.playerId,name=a.playerName||p.name||pid,level=a.level||a.playerLevel||p.level||'',chk=(s.attended||{})[pid];const del=row.type==='extra'&&!dis?`<button class="extra-remove" onclick="event.preventDefault();event.stopPropagation();removeExtraAtt661('${esc674(s.id)}','${esc674(pid)}')">Törlés</button>`:'';return `<label class="ci${chk?' chk':''}" onclick="event.preventDefault(); toggleAtt(this)" data-pid="${esc674(pid)}" data-court="${esc674(c.id)}"><input type="checkbox" ${chk?'checked':''} ${dis?'disabled':''}><span class="cm"></span><span>${esc674(name)}</span>${lv(level)}<span style="font-size:10px;color:${row.type==='extra'?'var(--go)':'var(--lime)'}">${row.type==='extra'?'utólag hozzáadva':'✓ jel.'}</span>${del}</label>`;}).join('');
-      } else html+='<span style="color:var(--mu);font-size:12px">Nincs ide sorolt bejelentkező.</span>';
-      html+='</div></div>';
-    });
-    const mismatch=apps.filter(a=>!applicantCourt(s,a));
-    if(mismatch.length&&!sat){
-      html+=`<div style="margin-top:12px;padding:12px;border:1px solid rgba(245,200,66,.35);border-radius:12px;background:rgba(245,200,66,.05)"><h3 style="color:var(--go)">⚠️ Eltérő szintű jelentkezők</h3>`;
-      html+=mismatch.map(a=>{const p=(players||{})[a.playerId]||{},pid=a.playerId,chk=(s.attended||{})[pid];return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><label class="ci${chk?' chk':''}" onclick="event.preventDefault(); toggleAtt(this)" data-pid="${esc674(pid)}" data-court=""><input type="checkbox" ${chk?'checked':''} ${dis?'disabled':''}><span class="cm"></span><span>${esc674(a.playerName||p.name||pid)}</span>${lv(a.level||a.playerLevel||p.level)}</label><select data-assign-pid="${esc674(pid)}" ${dis?'disabled':''}>${courts.map(c=>`<option value="${esc674(c.id)}">${esc674(courtLabel674(s,c))}</option>`).join('')}</select></div>`;}).join('');
-      html+='</div>';
-    }
-    const extraOpts=activePlayers674().filter(p=>!(s.applicants||{})[p.id]&&!(s.attended||{})[p.id]);
-    html+=`<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>Be nem jelentkezett, de megjelent játékos hozzáadása</h3><div class="fr"><div class="fg w"><select id="extra-player" ${dis?'disabled':''}><option value="">— Válassz játékost —</option>${extraOpts.map(p=>`<option value="${esc674(p.id)}">${esc674(p.name)} ${p.level?('– '+(LVLS[p.level]||p.level)):''}</option>`).join('')}</select></div><div class="fg"><select id="extra-court" ${dis?'disabled':''}>${courts.map(c=>`<option value="${esc674(c.id)}">${esc674(courtLabel674(s,c))}</option>`).join('')}</select></div><button class="btn btn-gold" onclick="addExtraAtt('${s.id}')" ${dis?'disabled':''}>+ Hozzáadás</button></div><div class="v6-note">A hozzáadott játékos ugyanúgy beleszámít a pályadíjba.</div></div>${closed&&isAdmin?`<div style="text-align:right;margin-top:10px"><button class="btn btn-gold btn-sm" onclick="unlockSession('${s.id}')">Admin feloldás</button></div>`:`<div style="text-align:right;margin-top:10px">${!closed?`<button class="btn btn-lime btn-sm" onclick="saveAtt('${s.id}')">🔒 Edzés lezárása</button>`:''}</div>`}</div>`;
-    el.innerHTML=html;
-  };
-  window.toggleAtt=function(el){
-    if(!canEdit674()){openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));return;}
-    const inp=el.querySelector('input'); if(inp.disabled)return;
-    el.classList.toggle('chk'); inp.checked=el.classList.contains('chk');
-    const sid=(window.__attDaySessions654||[])[window.__attDayIndex654||0]?.id; if(!sid)return;
-    const pid=el.dataset.pid,cid=el.dataset.court;
-    if(inp.checked){const p=(players||{})[pid]||{},s=sessions[sid]||{},app=(s.applicants||{})[pid]||{},old=(s.attended||{})[pid]||{};const val={playerId:pid,playerName:app.playerName||p.name||'',playerLevel:app.level||app.playerLevel||p.level||'',courtId:cid,extra:!!old.extra};fbSet('sessions/'+sid+'/attended/'+pid,val).then(()=>renderAttSel());}
-    else fbRemove('sessions/'+sid+'/attended/'+pid).then(()=>renderAttSel());
   };
 
   window.renderCoachWeek=function(){
-    const today=new Date();today.setHours(0,0,0,0);
-    const mon=monday(new Date(today.getTime()+coachOff*7*86400000));
-    const lbl=document.getElementById('coach-lbl'); if(lbl)lbl.textContent=weekLabel(mon);
-    const isos=[]; for(let i=0;i<6;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}
-    Promise.all(isos.map(ensureAutoSession)).then(()=>{
-      let html='';
-      for(let i=0;i<6;i++){
-        const iso=isos[i], sess=normalize674(sessions[autoId(iso)]), sat=isSat674(sess);
-        html+=`<div class="cdc${iso===toISO(today)?' today':''}"><div class="cdch"><div class="cdcn">${DAYS_L[i]}</div><div class="cdcd">${fmtShort(iso)}</div></div>`;
-        if(sat) html+=`<div class="csb"><div class="cst">${esc674(displayTime674(sess))} · Pálya 1</div>${satBlock674(sess,'coach')}<div class="csc2">${(satCourt674(sess).fee||DEF_FEE).toLocaleString('hu-HU')} Ft · Jelentkezett ${applList(sess).length} | Hozzáadott ${attList(sess).filter(a=>!(sess.applicants||{})[a.playerId]).length}</div><div class="v6-note">Szombaton nincs fix szint: az edző az időpont megadásával erősíti meg az edzést.</div></div>`;
-        else html+=courtArr674(sess).map(c=>{const apps=applList(sess).filter(a=>applicantCourt(sess,a)===c.id);return `<div class="csb"><div class="cst">${esc674(sess.time||'időpont nélkül')} · ${esc674(courtLabel674(sess,c))}</div><div class="csc2">${(c.fee||DEF_FEE).toLocaleString('hu-HU')} Ft · ${apps.length} fő</div><div class="v6-note">Edző:</div><select class="coach-select" onchange="setCoach('${sess.id}','${c.id}',this.value)">${coachOptions(c.coachId||'',true)}</select><div class="cnm">${apps.map(a=>esc674(a.playerName||players[a.playerId]?.name||'')).filter(Boolean).join(', ')||'Nincs bejelentkező'}</div></div>`;}).join('');
-        html+='</div>';
-      }
-      const grid=document.getElementById('coach-grid'); if(grid)grid.innerHTML=html;
+    var grid=document.getElementById('coach-grid'); if(!grid)return;
+    var today=new Date();today.setHours(0,0,0,0);var mon=monday(new Date(today.getTime()+coachOff*7*86400000));var lbl=document.getElementById('coach-lbl');if(lbl)lbl.textContent=weekLabel(mon);var isos=[];for(var i=0;i<6;i++){var d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}
+    Promise.all(isos.map(ensureAutoSession)).then(function(){var html='';for(var i=0;i<6;i++){var iso=isos[i],sess=normS(sessions[autoId(iso)]),sat=isSat(sess);html+='<div class="cdc'+(iso===toISO(today)?' today':'')+'"><div class="cdch"><div class="cdcn">'+DAYS_L[i]+'</div><div class="cdcd">'+fmtShort(iso)+'</div></div>'+courts(sess).map(function(c){var apps=applList(sess).filter(function(a){return applicantCourt(sess,a)===c.id;});var added=addedOn2(sess,c.id);return '<div class="csb"><div class="cst">'+esc(dispTime(sess))+' · '+esc(cLabel(sess,c))+'</div><div class="csc2">'+(sat?'':((LVLS[c.level]||'')+' · '))+((c.fee||DEF_FEE).toLocaleString('hu-HU'))+' Ft · Edző: '+esc(c.coachName||staffName(c.coachId)||'—')+' · Jelentkezett: '+apps.length+' | Hozzáadott: '+added+'</div>'+ (sat?control(sess):'') +'<div class="cnm">'+(apps.map(function(a){return players[a.playerId]&&players[a.playerId].name;}).filter(Boolean).join(', ')||'Nincs bejelentkező')+'</div></div>';}).join('')+'</div>';}
+      grid.innerHTML=html;
     });
   };
 
-  window.addExtraAtt=function(sid){
-    if(!canEdit674()){openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));return;}
-    const pid=document.getElementById('extra-player')?.value, cid=document.getElementById('extra-court')?.value;
-    if(!pid||!cid){toast('Válassz játékost és pályát.');return;}
-    const p=(players||{})[pid]||{};
-    fbSet(`sessions/${sid}/attended/${pid}`,{playerId:pid,playerName:p.name||'',playerLevel:p.level||'',courtId:cid,extra:true}).then(()=>{toast('Játékos hozzáadva a jelenléthez.');try{renderAttSel();}catch(e){}});
+  var oldRenderAtt=window.renderAttForm;
+  if(typeof oldRenderAtt==='function'){window.renderAttForm=function(){oldRenderAtt.apply(this,arguments);setTimeout(cleanLegacySatEditors672,20);};}
+  setTimeout(function(){try{var t=document.querySelector('.logo em');if(t)t.textContent='Felnőtt Tenisz V6.7.2';if(document.getElementById('sec-home')&&document.getElementById('sec-home').classList.contains('active'))renderHome();if(document.getElementById('sec-edzo')&&document.getElementById('sec-edzo').classList.contains('active'))renderCoachWeek();if(document.getElementById('sec-jelenlet')&&document.getElementById('sec-jelenlet').classList.contains('active'))renderAttSel();}catch(e){}},150);
+})();
+</script>
+
+
+
+
+
+<style id="v6-7-5-saturday-stable-css">
+/* V6.7.5 – stabil szombati komponens: nincs DOM-injektálás, nincs duplikáció */
+.sat-stable-box{margin-top:6px;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.sat-stable-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sat-stable-warn{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid rgba(245,200,66,.45);background:rgba(245,200,66,.12);color:var(--go);font-size:11px;font-weight:900;line-height:1.15}
+.sat-stable-ok{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid rgba(57,211,83,.45);background:rgba(57,211,83,.13);color:var(--lime);font-size:11px;font-weight:900;line-height:1.15}
+.sat-stable-time{font-size:13px;font-weight:900;color:var(--tx)}
+.sat-stable-input{width:105px!important;min-width:105px!important;padding:6px 8px!important;border-radius:8px!important;font-size:12px!important}
+</style>
+<script id="v6-7-5-saturday-stable-patch">
+(function(){
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+  function isSat(s){var d=new Date((s&&s.date)||s);return d.getDay()===6;}
+  function cleanTime(s){var t=String((s&&s.time)||'').trim();return (!t||t==='18:00'||t==='14:00')?'':t;}
+  function canEdit(){try{return typeof hasStaffAccess==='function'&&hasStaffAccess();}catch(e){return false;}}
+  function getFee(s){try{return getSezonFee(s.date)||DEF_FEE;}catch(e){return DEF_FEE||3000;}}
+  function satCourt(s){var old=(s&&s.courts)?(Array.isArray(s.courts)?s.courts[0]:Object.values(s.courts)[0]):{};return {id:'court1',name:'Pálya 1',fee:(old&&old.fee)||getFee(s),coachId:(old&&old.coachId)||'',coachName:(old&&old.coachName)||'',saturday:true};}
+  function norm(s){if(!s)return s; try{if(typeof normalizeSession==='function')s=normalizeSession(s);}catch(e){} if(isSat(s)){s.time=cleanTime(s);s.courts={court1:satCourt(s)};} return s;}
+  function courts(s){s=norm(s); if(isSat(s))return [satCourt(s)]; try{return courtArray(s);}catch(e){return Object.entries(s.courts||{}).map(function(x){return Object.assign({id:x[0]},x[1]);});}}
+  function cLabel(s,c){if(isSat(s))return 'Pálya 1';var lvl=c&&c.level?(LVLS[c.level]||c.level):'';return ((c&&c.name)||'Pálya 1')+(lvl?' – '+lvl:'');}
+  function appsOn(s,cid){return applList(s).filter(function(a){return applicantCourt(s,a)===cid;}).length;}
+  function addedOn(s,cid){return attList(s).filter(function(a){return a.courtId===cid && !(s.applicants||{})[a.playerId];}).length;}
+  function activePlayers(){return Object.values(players||{}).filter(function(p){return p&&p.active!==false;}).sort(function(a,b){return (a.name||'').localeCompare((b.name||''),'hu');});}
+  function satStatus(s, context){
+    if(!isSat(s))return '';
+    var sid=s.id,t=cleanTime(s),edit=canEdit();
+    if(!t){
+      if(edit){return '<div class="sat-stable-box" data-sat-id="'+esc(sid)+'"><div class="sat-stable-row"><span class="sat-stable-warn">⚠ Edzés még nincs megerősítve</span></div><div class="sat-stable-row"><span class="sat-stable-time">Időpont később</span><input class="sat-stable-input" type="time" id="sat-stable-time-'+esc(sid)+'" onclick="event.stopPropagation()"><button class="btn btn-gold btn-sm" onclick="event.stopPropagation();saveSaturdayTime67(\''+esc(sid)+'\')">Időpont mentése</button></div></div>';}
+      return '<div class="sat-stable-box" data-sat-id="'+esc(sid)+'"><div class="sat-stable-row"><span class="sat-stable-warn">⚠ Edzés még nincs megerősítve</span></div><div class="sat-stable-row"><span class="sat-stable-time">Időpont később</span></div></div>';
+    }
+    if(edit){return '<div class="sat-stable-box" data-sat-id="'+esc(sid)+'"><div class="sat-stable-row"><span class="sat-stable-ok">✓ Edzés megerősítve</span></div><div class="sat-stable-row"><span class="sat-stable-ok">Mentve ✓ '+esc(t)+'</span><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editSatTime675(\''+esc(sid)+'\')">Időpont módosítása</button></div></div>';}
+    return '<div class="sat-stable-box" data-sat-id="'+esc(sid)+'"><div class="sat-stable-row"><span class="sat-stable-ok">✓ Edzés megerősítve</span></div><div class="sat-stable-row"><span class="sat-stable-time">'+esc(t)+'</span></div></div>';
+  }
+  window.editSatTime675=function(sid){
+    try{var s=norm(sessions[sid]||{}); var t=cleanTime(s); var html='<div class="sat-stable-box" data-sat-id="'+esc(sid)+'"><div class="sat-stable-row"><input class="sat-stable-input" type="time" id="sat-stable-time-'+esc(sid)+'" value="'+esc(t)+'" onclick="event.stopPropagation()"><button class="btn btn-gold btn-sm" onclick="event.stopPropagation();saveSaturdayTime67(\''+esc(sid)+'\')">Időpont mentése</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();refreshSat675()">Mégsem</button></div></div>'; document.querySelectorAll('.sat-stable-box[data-sat-id="'+CSS.escape(sid)+'"]').forEach(function(box){box.outerHTML=html;});}catch(e){}
+  };
+  window.saveSaturdayTime67=function(sid){
+    if(!canEdit()){try{openStaffLogin('edzo',document.getElementById('nav-edzo'));}catch(e){} return;}
+    var inp=document.getElementById('sat-stable-time-'+sid)||document.getElementById('sat-time-'+sid)||document.querySelector('input[id*="'+sid+'"]');
+    var time=inp?String(inp.value||'').trim():'';
+    var s=norm(sessions[sid]||{}); s.id=sid; s.time=time; s.dur=s.dur||60; s.courts={court1:satCourt(s)}; s.applicants=s.applicants||{}; s.attended=s.attended||{}; s.isAuto=s.isAuto!==false; s.status=s.status||'open';
+    return fbSet('sessions/'+sid,s).then(function(){if(sessions)sessions[sid]=s;toast(time?'Szombati időpont mentve.':'Szombati időpont törölve.');refreshSat675();});
+  };
+  window.saveHomeSatTime672=window.saveSaturdayTime67;
+  window.editSatTime672=window.editSatTime675;
+  window.refreshSat675=function(){try{renderHome();}catch(e){}try{renderCoachWeek();}catch(e){}try{renderAttSel();}catch(e){try{renderAttForm();}catch(_){}}};
+
+  window.buildCourtsForISO=function(iso){var dow=dayOfISO(iso),fee=getFee({date:iso}); if(dow===6)return {court1:{name:'Pálya 1',fee:fee,coachId:'',coachName:'',saturday:true}}; var defs=DEFAULT_WEEK[dow]||[{id:'court1',name:'Pálya 1',level:'kezdo'}],out={}; defs.forEach(function(d){out[d.id]={name:d.name,level:d.level,fee:fee,coachId:'',coachName:'',saturday:!!d.saturday};}); return out;};
+  DEFAULT_WEEK[6]=[{id:'court1',name:'Pálya 1',saturday:true}];
+  window.courtArray=courts;
+  window.applicantCourt=function(sess,a){return isSat(sess)?'court1':(a.courtId||autoAssignCourt(sess,a.level));};
+  window.isMismatch=function(sess,level){return isSat(sess)?false:!courts(sess).some(function(c){return c.level===level;});};
+  window.autoAssignCourt=function(sess,level){if(isSat(sess))return 'court1';var c=courts(sess).find(function(c){return c.level===level;});return c?c.id:null;};
+  window.ensureAutoSession=function(iso){var id=autoId(iso),dow=dayOfISO(iso); if(sessions[id]){var s=norm(sessions[id]); if(dow===6&&(sessions[id].time==='18:00'||sessions[id].time==='14:00'||!sessions[id].courts||Object.values(sessions[id].courts||{})[0]?.level)){sessions[id]=s;return fbSet('sessions/'+id,s).then(function(){return s;});}return Promise.resolve(s);} var sess={id:id,date:iso,time:dow===6?'':'18:00',dur:60,courts:buildCourtsForISO(iso),applicants:{},attended:{},isAuto:true,status:'open'};sessions[id]=sess;return fbSet('sessions/'+id,sess).then(function(){return sess;});};
+
+  window.renderHome=function(){var today=new Date();today.setHours(0,0,0,0);var mon=monday(new Date(today.getTime()+calOff*7*86400000));var lbl=document.getElementById('home-cal-lbl');if(lbl)lbl.textContent=weekLabel(mon);var pid=document.getElementById('home-player')&&document.getElementById('home-player').value||null;var isos=[];for(var i=0;i<6;i++){var d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}
+    Promise.all(isos.map(ensureAutoSession)).then(function(){var html='';for(var i=0;i<6;i++){var day=new Date(mon);day.setDate(mon.getDate()+i);var iso=isos[i],sid=autoId(iso),s=norm(sessions[sid]),sat=isSat(s),hasMe=pid&&s.applicants&&s.applicants[pid],cnts=courtCounts(s);html+='<div class="wk-day'+(iso===toISO(today)?' today':'')+(hasMe?' has-me':'')+'" onclick="openDayModal(\''+iso+'\')">'+(hasMe?'<div class="wk-me-badge">✓ Jel.</div>':'')+'<div class="wk-day-head"><div class="wk-dn">'+DAYS_S[i]+'</div><div class="wk-dd">'+day.getDate()+'</div></div><div class="wk-body">'+(sat?satStatus(s,'home'):'<div class="wk-time">'+esc(s.time||'18:00')+'</div>')+courts(s).map(function(c){return '<div style="border-top:1px solid var(--b1);padding-top:4px;margin-top:4px"><div class="wk-court">'+esc(cLabel(s,c))+'</div><div class="wk-count">'+((cnts.out&&cnts.out[c.id])||0)+' jelentkező</div><div class="wk-no">'+esc(c.coachName||staffName(c.coachId)||'Edző nincs megadva')+'</div></div>';}).join('')+(!sat&&cnts.mismatch?'<div style="margin-top:5px;color:var(--go);font-size:10px">⚠️ Eltérő szintű: '+cnts.mismatch+'</div>':'')+'</div></div>';}
+      var wrap=document.getElementById('home-wk');if(wrap)wrap.innerHTML=html;});
   };
 
-  setTimeout(function(){try{const logo=document.querySelector('.logo em');if(logo)logo.textContent='Felnőtt Tenisz V6.7.4';}catch(e){} refresh674();},250);
+  window.renderCoachWeek=function(){var grid=document.getElementById('coach-grid');if(!grid)return;var today=new Date();today.setHours(0,0,0,0);var mon=monday(new Date(today.getTime()+coachOff*7*86400000));var lbl=document.getElementById('coach-lbl');if(lbl)lbl.textContent=weekLabel(mon);var isos=[];for(var i=0;i<6;i++){var d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}
+    Promise.all(isos.map(ensureAutoSession)).then(function(){var html='';for(var i=0;i<6;i++){var iso=isos[i],s=norm(sessions[autoId(iso)]),sat=isSat(s);html+='<div class="cdc'+(iso===toISO(today)?' today':'')+'"><div class="cdch"><div class="cdcn">'+DAYS_L[i]+'</div><div class="cdcd">'+fmtShort(iso)+'</div></div>'+courts(s).map(function(c){var apps=applList(s).filter(function(a){return applicantCourt(s,a)===c.id;});return '<div class="csb"><div class="cst">'+(sat?'':esc(s.time||'18:00')+' · ')+esc(cLabel(s,c))+'</div>'+(sat?satStatus(s,'coach'):'')+'<div class="csc2">'+(sat?'':((LVLS[c.level]||'')+' · '))+((c.fee||DEF_FEE).toLocaleString('hu-HU'))+' Ft · Edző: '+esc(c.coachName||staffName(c.coachId)||'—')+' · Jelentkezett: '+apps.length+' | Hozzáadott: '+addedOn(s,c.id)+'</div><div class="cnm">'+(apps.map(function(a){return (players[a.playerId]&&players[a.playerId].name)||a.playerName;}).filter(Boolean).map(esc).join(', ')||'Nincs bejelentkező')+'</div></div>';}).join('')+'</div>';}
+      grid.innerHTML=html;});
+  };
+
+  function collectSessions(){var today=new Date();today.setHours(0,0,0,0);var start=new Date(today);start.setDate(today.getDate()-21);var end=new Date(today);end.setDate(today.getDate()+60);var by={};for(var d=new Date(start);d<=end;d.setDate(d.getDate()+1)){var dow=d.getDay();if(dow>=1&&dow<=6){var iso=toISO(d),id=autoId(iso);if(!sessions[id])sessions[id]={id:id,date:iso,time:dow===6?'':'18:00',dur:60,courts:buildCourtsForISO(iso),applicants:{},attended:{},isAuto:true,status:'open'};by[id]=norm(sessions[id]);}}allSessions().forEach(function(s){var ns=norm(s);by[ns.id]=ns;});return Object.values(by).sort(function(a,b){return (a.date+(a.time||''))>(b.date+(b.time||''))?1:-1;});}
+  function findRel(list){if(!list.length)return 0;var today=new Date();today.setHours(0,0,0,0);var i=list.findIndex(function(s){var d=new Date(s.date);d.setHours(0,0,0,0);return d.getTime()===today.getTime();});if(i>=0)return i;i=list.findIndex(function(s){var d=new Date(s.date);d.setHours(0,0,0,0);return d.getTime()>today.getTime();});return i>=0?i:list.length-1;}
+  window.renderAttSel=function(){window.__attDaySessions654=collectSessions();if(typeof window.__attDayIndex654!=='number')window.__attDayIndex654=findRel(window.__attDaySessions654);if(window.__attDayIndex654<0)window.__attDayIndex654=0;if(window.__attDayIndex654>=window.__attDaySessions654.length)window.__attDayIndex654=window.__attDaySessions654.length-1;var w=document.getElementById('att-form-wrap');if(w)w.style.display='none';renderAttForm();};
+  window.goAttToday=function(){window.__attDaySessions654=collectSessions();window.__attDayIndex654=findRel(window.__attDaySessions654);renderAttForm();};
+  window.moveAttDay=function(delta){if(!window.__attDaySessions654||!window.__attDaySessions654.length)window.__attDaySessions654=collectSessions();window.__attDayIndex654=Math.max(0,Math.min(window.__attDaySessions654.length-1,(window.__attDayIndex654||0)+delta));renderAttForm();};
+
+  window.renderAttForm=function(){var el=document.getElementById('att-form');if(!el)return;if(!window.__attDaySessions654||!window.__attDaySessions654.length)window.__attDaySessions654=collectSessions();var arr=window.__attDaySessions654;if(!arr.length){el.innerHTML='<div class="empty"><div class="ic">📋</div><p>Nincs kezelhető edzés.</p></div>';return;}var s=norm(arr[window.__attDayIndex654||0]);if(!s){el.innerHTML='';return;}var closed=s.status==='closed',dis=closed&&!isAdmin,date=new Date(s.date),days=['VASÁRNAP','HÉTFŐ','KEDD','SZERDA','CSÜTÖRTÖK','PÉNTEK','SZOMBAT'],sat=isSat(s),cs=courts(s);var closeBtn=closed?(isAdmin?'<button class="btn btn-gold btn-sm" onclick="unlockSession(\''+s.id+'\')">Admin feloldás</button>':'<span class="badge bg-g">Lezárt</span>'):'<button class="btn btn-lime btn-sm" onclick="saveAtt(\''+s.id+'\')">🔒 Edzés lezárása</button>';var html='<div class="card" style="max-width:760px;margin-left:auto;margin-right:auto"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><button class="btn-nav" onclick="moveAttDay(-1)">←</button><div style="text-align:center;flex:1"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.35rem;letter-spacing:2px;color:var(--lime)">'+esc(fmtDate(s.date).toUpperCase()+' · '+days[date.getDay()])+'</div></div><div style="display:flex;gap:8px;align-items:center"><button class="btn-nav" onclick="moveAttDay(1)">→</button><button class="btn btn-ghost btn-sm" onclick="goAttToday()">Mai / aktuális</button></div></div><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px"><div><div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.1rem;letter-spacing:2px;color:var(--lime)">'+(sat?esc(cleanTime(s)||'Időpont később'):esc(s.time||'18:00'))+' · '+cs.length+' pálya</div><div style="color:var(--mu);font-size:12px">'+(closed?'🔒 Lezárt edzés – csak admin módosíthatja':'Pipáld be a tényleges megjelenteket.')+'</div>'+(sat?satStatus(s,'att'):'')+'</div>'+closeBtn+'</div>';var apps=applList(s),atts=attList(s);cs.forEach(function(c){var assigned=apps.filter(function(a){return applicantCourt(s,a)===c.id;}),extras=atts.filter(function(a){return a.courtId===c.id&&!(s.applicants||{})[a.playerId];}),rows=assigned.map(function(a){return{type:'app',a:a};}).concat(extras.map(function(a){return{type:'extra',a:a};}));var checked=rows.filter(function(r){return (s.attended||{})[r.a.playerId]&&(s.attended||{})[r.a.playerId].courtId===c.id;}).length,per=checked?Math.round((c.fee||DEF_FEE)/checked):null;html+='<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>'+esc(cLabel(s,c))+' · '+((c.fee||DEF_FEE).toLocaleString('hu-HU'))+' Ft '+(per?'→ '+per.toLocaleString('hu-HU')+' Ft/fő':'')+'</h3><div class="count-line">Jelentkezett: <strong>'+appsOn(s,c.id)+'</strong> | Hozzáadott: <strong>'+addedOn(s,c.id)+'</strong></div>'+coachBlock(s,c)+'<div class="cg">';if(rows.length){html+=rows.map(function(row){var a=row.a,p=(players||{})[a.playerId]||{},pid=a.playerId,name=a.playerName||p.name||pid,level=a.level||a.playerLevel||p.level||'',chk=(s.attended||{})[pid];var del=row.type==='extra'&&!dis?'<button class="extra-remove" onclick="event.preventDefault();event.stopPropagation();removeExtraAtt661(\''+esc(s.id)+'\',\''+esc(pid)+'\')">Törlés</button>':'';return '<label class="ci'+(chk?' chk':'')+'" onclick="event.preventDefault(); toggleAtt(this)" data-pid="'+esc(pid)+'" data-court="'+esc(c.id)+'"><input type="checkbox" '+(chk?'checked':'')+' '+(dis?'disabled':'')+'><span class="cm"></span><span>'+esc(name)+'</span>'+lv(level)+'<span style="font-size:10px;color:'+(row.type==='extra'?'var(--go)':'var(--lime)')+'">'+(row.type==='extra'?'utólag hozzáadva':'✓ jel.')+'</span>'+del+'</label>';}).join('');}else html+='<span style="color:var(--mu);font-size:12px">Nincs ide sorolt bejelentkező.</span>';html+='</div></div>';});var mismatch=apps.filter(function(a){return !applicantCourt(s,a);});if(mismatch.length&&!sat){html+='<div style="margin-top:12px;padding:12px;border:1px solid rgba(245,200,66,.35);border-radius:12px;background:rgba(245,200,66,.05)"><h3 style="color:var(--go)">⚠️ Eltérő szintű jelentkezők</h3>'+mismatch.map(function(a){var p=(players||{})[a.playerId]||{},pid=a.playerId,chk=(s.attended||{})[pid];return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><label class="ci'+(chk?' chk':'')+'" onclick="event.preventDefault(); toggleAtt(this)" data-pid="'+esc(pid)+'" data-court=""><input type="checkbox" '+(chk?'checked':'')+' '+(dis?'disabled':'')+'><span class="cm"></span><span>'+esc(a.playerName||p.name||pid)+'</span>'+lv(a.level||a.playerLevel||p.level)+'</label><select data-assign-pid="'+esc(pid)+'" '+(dis?'disabled':'')+'>'+cs.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(cLabel(s,c))+'</option>';}).join('')+'</select></div>';}).join('')+'</div>';}
+    var extraOpts=activePlayers().filter(function(p){return !(s.applicants||{})[p.id]&&!(s.attended||{})[p.id];});html+='<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>Be nem jelentkezett, de megjelent játékos hozzáadása</h3><div class="fr"><div class="fg w"><select id="extra-player" '+(dis?'disabled':'')+'><option value="">— Válassz játékost —</option>'+extraOpts.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+(p.level?' – '+(LVLS[p.level]||p.level):'')+'</option>';}).join('')+'</select></div><div class="fg"><select id="extra-court" '+(dis?'disabled':'')+'>'+cs.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(cLabel(s,c))+'</option>';}).join('')+'</select></div><button class="btn btn-gold" onclick="addExtraAtt(\''+s.id+'\')" '+(dis?'disabled':'')+'>+ Hozzáadás</button></div><div class="v6-note">A hozzáadott játékos ugyanúgy beleszámít a pályadíjba.</div></div>'+(closed&&isAdmin?'<div style="text-align:right;margin-top:10px"><button class="btn btn-gold btn-sm" onclick="unlockSession(\''+s.id+'\')">Admin feloldás</button></div>':('<div style="text-align:right;margin-top:10px">'+(!closed?'<button class="btn btn-lime btn-sm" onclick="saveAtt(\''+s.id+'\')">🔒 Edzés lezárása</button>':'')+'</div>'))+'</div>';el.innerHTML=html;};
+
+  setTimeout(function(){try{var logo=document.querySelector('.logo em');if(logo)logo.textContent='Felnőtt Tenisz V6.7.5';}catch(e){} refreshSat675();},200);
 })();
 </script>
 
