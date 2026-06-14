@@ -1598,5 +1598,79 @@ setTimeout(()=>{try{const t=document.querySelector('.logo em');if(t)t.textConten
 })();
 </script>
 
+
+<style id="v6-7-3-saturday-final-css">
+.sat-final-wrap{margin-top:6px;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.sat-final-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sat-final-status{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,213,79,.45);background:rgba(255,213,79,.12);color:#ffd54f;font-size:11px;font-weight:900;line-height:1.1}
+.sat-final-status.confirmed{border-color:rgba(57,211,83,.45);background:rgba(57,211,83,.13);color:var(--lime)}
+.sat-final-time{font-size:13px;font-weight:900;color:var(--txt)}
+.sat-final-input{width:102px!important;min-width:102px!important;padding:6px 8px!important;border-radius:8px!important;font-size:12px!important}
+</style>
+<script id="v6-7-3-saturday-final-patch">
+(function(){
+function esc673(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+function allSess673(){try{if(typeof allSessions==='function')return allSessions();}catch(e){} return Object.values(window.sessions||{});}
+function norm673(s){try{if(typeof normalizeSession==='function')s=normalizeSession(s);}catch(e){} try{if(typeof normSat==='function')s=normSat(s);}catch(e){} return s||{};}
+function isSaturday673(s){var d=new Date((s&&s.date)||s);return d.getDay()===6;}
+function satTime673(s){var t=String((s&&s.time)||'').trim();return(!t||t==='18:00'||t==='14:00')?'':t;}
+function canEditSat673(){try{return typeof hasStaffAccess==='function'&&hasStaffAccess();}catch(e){return false;}}
+function satCourt673(s){var courts=s&&s.courts;var ex=courts?(Array.isArray(courts)?courts[0]:Object.values(courts)[0]):{};return{id:(ex&&ex.id)||'court1',name:'Pálya 1',fee:(ex&&ex.fee)||(typeof DEF_FEE!=='undefined'?DEF_FEE:3000),coachId:(ex&&ex.coachId)||'',coachName:(ex&&ex.coachName)||''};}
+function block673(sess){
+ var s=norm673(sess); if(!s||!s.id||!isSaturday673(s))return '';
+ var sid=s.id,t=satTime673(s),can=canEditSat673();
+ if(!t){
+  if(can){
+   var iid='sat-final-input-'+sid+'-'+Math.random().toString(36).slice(2,7);
+   return '<div class="sat-final-wrap" data-sat-final="'+esc673(sid)+'"><div class="sat-final-row"><span class="sat-final-status">⚠ Edzés még nincs megerősítve</span></div><div class="sat-final-row"><span class="sat-final-time">Időpont később</span><input class="sat-final-input" type="time" id="'+esc673(iid)+'" onclick="event.stopPropagation()"><button class="btn btn-gold btn-sm" onclick="event.stopPropagation(); saveSatTime673(\''+esc673(sid)+'\',\''+esc673(iid)+'\')">Időpont mentése</button></div></div>';
+  }
+  return '<div class="sat-final-wrap" data-sat-final="'+esc673(sid)+'"><div class="sat-final-row"><span class="sat-final-status">⚠ Edzés még nincs megerősítve</span></div><div class="sat-final-row"><span class="sat-final-time">Időpont később</span></div></div>';
+ }
+ if(can){
+  return '<div class="sat-final-wrap" data-sat-final="'+esc673(sid)+'"><div class="sat-final-row"><span class="sat-final-status confirmed">✓ Edzés megerősítve</span></div><div class="sat-final-row"><span class="sat-final-status confirmed">Mentve ✓ '+esc673(t)+'</span><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); editSatTime673(\''+esc673(sid)+'\')">Időpont módosítása</button></div></div>';
+ }
+ return '<div class="sat-final-wrap" data-sat-final="'+esc673(sid)+'"><div class="sat-final-row"><span class="sat-final-status confirmed">✓ Edzés megerősítve</span></div><div class="sat-final-row"><span class="sat-final-time">'+esc673(t)+'</span></div></div>';
+}
+function saveSatTime673(sid,inputId){
+ if(!canEditSat673()){try{openStaffLogin('szombati időpont',document.getElementById('nav-home'));}catch(e){} return;}
+ var inp=document.getElementById(inputId||('sat-final-input-'+sid)); var time=inp?String(inp.value||'').trim():'';
+ var s=norm673((window.sessions||{})[sid]||{}); var obj={...s,id:sid,date:s.date,time:time,dur:s.dur||60,courts:[satCourt673(s)],applicants:s.applicants||{},attended:s.attended||{},isAuto:s.isAuto!==false,status:s.status||'open'};
+ return fbSet('sessions/'+sid,obj).then(function(){if(window.sessions)window.sessions[sid]=obj;try{toast(time?'Szombati időpont mentve.':'Szombati időpont törölve.');}catch(e){} refreshSat673();});
+}
+function editSatTime673(sid){
+ document.querySelectorAll('[data-sat-final="'+sid+'"]').forEach(function(box){
+  var s=norm673((window.sessions||{})[sid]||{}); var iid='sat-final-input-'+sid+'-'+Math.random().toString(36).slice(2,7);
+  box.innerHTML='<div class="sat-final-wrap"><div class="sat-final-row"><span class="sat-final-status">Edzés időpontja módosítható</span></div><div class="sat-final-row"><input class="sat-final-input" type="time" id="'+esc673(iid)+'" value="'+esc673(satTime673(s))+'" onclick="event.stopPropagation()"><button class="btn btn-gold btn-sm" onclick="event.stopPropagation(); saveSatTime673(\''+esc673(sid)+'\',\''+esc673(iid)+'\')">Időpont mentése</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); refreshSat673()">Mégsem</button></div></div>';
+ });
+}
+function cleanup673(){
+ document.querySelectorAll('[data-sat-time-block],.home-sat-time-box,.sat-time-view,.sat-time-edit').forEach(function(el){if(!el.closest('[data-sat-final]'))el.remove();});
+}
+function inject673(){
+ cleanup673();
+ var sats=allSess673().map(norm673).filter(function(s){return s&&s.id&&isSaturday673(s);});
+ sats.forEach(function(s){
+  var d=new Date(s.date),day=String(d.getDate()),time=satTime673(s);
+  var cards=Array.from(document.querySelectorAll('.wk-day,.day-card,.cal-card,.week-card,.coach-day,.att-card,.card,[class*="day"],[class*="card"]'));
+  cards.forEach(function(card){
+   if(card.querySelector('[data-sat-final="'+s.id+'"]'))return;
+   var txt=card.textContent||'',looks=txt.includes('SZOMBAT')||txt.includes('Szombat')||txt.includes('szombat')||txt.includes('SZ')||txt.includes('Sz');
+   var likely=looks&&(txt.includes(day)||txt.includes('Időpont később')||(time&&txt.includes(time)));
+   if(!likely)return;
+   var r=card.getBoundingClientRect(); if(r.width>window.innerWidth*.96&&r.height>400)return;
+   var h=document.createElement('div'); h.innerHTML=block673(s); card.appendChild(h.firstElementChild);
+  });
+ });
+}
+function refreshSat673(){try{if(typeof renderHome==='function')renderHome();}catch(e){} try{if(typeof renderCoach==='function')renderCoach();}catch(e){} try{if(typeof renderAttSel==='function')renderAttSel();}catch(e){} setTimeout(inject673,120);setTimeout(inject673,400);}
+window.saveSatTime673=saveSatTime673; window.editSatTime673=editSatTime673; window.refreshSat673=refreshSat673;
+window.saveSaturdayTime67=function(sid){var inp=document.querySelector('[id^="sat-final-input-'+sid+'"]')||document.getElementById('sat-time-'+sid)||document.getElementById('home-sat-time-'+sid);return saveSatTime673(sid,inp?inp.id:null);};
+window.saveHomeSatTime672=window.saveSaturdayTime67;
+['renderHome','renderCoach','renderAttForm','renderAttSel'].forEach(function(fn){var old=window[fn];if(typeof old==='function'&&!old.__sat673wrapped){var w=function(){var r=old.apply(this,arguments);setTimeout(inject673,120);return r;};w.__sat673wrapped=true;window[fn]=w;}});
+document.addEventListener('click',function(){setTimeout(inject673,180);},true);
+setTimeout(function(){try{var logo=document.querySelector('.logo em');if(logo)logo.textContent='Felnőtt Tenisz V6.7.3';}catch(e){} refreshSat673();},250);
+})();
+</script>
+
 </body>
 </html>
