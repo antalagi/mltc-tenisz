@@ -2628,6 +2628,88 @@ setTimeout(function(){try{var title=document.querySelector('.logo em');if(title)
 </script>
 <!-- /V7.1.5 -->
 
+
+<!-- V7.1.6 – végleges szombati világítás-visszajelzés + böngészőcím -->
+<script id="v7-1-6-saturday-lighting-final-fix">
+(function(){
+  function outdoor716(iso){
+    const d=new Date(iso), m=d.getMonth()+1, day=d.getDate();
+    return (m>4&&m<10)||(m===4&&day>=15)||(m===10&&day<=15);
+  }
+  function sat716(iso){ return new Date(iso).getDay()===6; }
+
+  // A régi szombati patch a lighting mezőt renderelés közben eldobhatja,
+  // viszont a díjat (4000 Ft) megtartja. Ezért szombaton a 4000 Ft is
+  // biztos jelzése annak, hogy a világítás aktív.
+  window.lightingControl714=function(s,c){
+    if(!s || !s.date || !outdoor716(s.date)) return '';
+    if(!(typeof hasStaffAccess==='function' && hasStaffAccess())) return '';
+
+    const stored = sessions && sessions[s.id] && sessions[s.id].courts &&
+                   sessions[s.id].courts[c.id] ? sessions[s.id].courts[c.id] : null;
+
+    const checked =
+      !!(c && c.lighting) ||
+      !!(stored && stored.lighting) ||
+      (sat716(s.date) && Number((c&&c.fee)||0)===4000) ||
+      (sat716(s.date) && stored && Number(stored.fee||0)===4000);
+
+    return `<label class="light-row"><input type="checkbox" ${checked?'checked':''}
+      onchange="toggleLighting716('${s.id}','${c.id}',this.checked)"> Világítás (+1 000 Ft)</label>`;
+  };
+
+  window.toggleLighting716=function(sid,cid,checked){
+    if(!(typeof hasStaffAccess==='function' && hasStaffAccess())){
+      openStaffLogin('edzo',document.getElementById('nav-edzo'));
+      return;
+    }
+    const s=sessions && sessions[sid];
+    if(!s || !s.date || !outdoor716(s.date)){
+      toast('Világítás csak szabadtéri időszakban jelölhető.');
+      return;
+    }
+
+    const fee=checked?4000:3000;
+
+    // Lokális állapot frissítése
+    if(!sessions[sid].courts) sessions[sid].courts={};
+    if(!sessions[sid].courts[cid]) sessions[sid].courts[cid]={name:'Pálya 1'};
+    sessions[sid].courts[cid].lighting=!!checked;
+    sessions[sid].courts[cid].fee=fee;
+
+    // Firebase-ben célzottan csak ezt a két mezőt módosítjuk.
+    return db.ref(`sessions/${sid}/courts/${cid}`).update({
+      lighting:!!checked,
+      fee:fee
+    }).then(()=>{
+      toast(checked?'Világítás hozzáadva (+1 000 Ft).':'Világítás törölve.');
+      try{ renderAttSel(); }catch(e){ try{renderAttForm();}catch(_){} }
+      try{ renderCoachWeek(); }catch(e){}
+      try{ renderHome(); }catch(e){}
+    }).catch(err=>{
+      console.error(err);
+      toast('⚠️ Világítás mentési hiba.');
+    });
+  };
+
+  // A coachBlock utolsó felülírása: egyetlen világítás checkbox, a fenti logikával.
+  const previousCoachBlock716 = window.coachBlock;
+  if(typeof previousCoachBlock716==='function'){
+    window.coachBlock=function(s,c){
+      let base=previousCoachBlock716.apply(this,arguments);
+      base=base.replace(/<label class="light-row">[\s\S]*?<\/label>/g,'');
+      base=base.replace(/<label class="v714-light">[\s\S]*?<\/label>/g,'');
+      return base + lightingControl714(s,c);
+    };
+  }
+
+  // Böngészőfül címe.
+  try{ document.title='MLTC Tennis V7.1.6'; }catch(e){}
+  setTimeout(()=>{try{document.title='MLTC Tennis V7.1.6';}catch(e){}},300);
+})();
+</script>
+<!-- /V7.1.6 -->
+
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
