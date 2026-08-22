@@ -1623,7 +1623,7 @@ window.addExtraAtt=function(sid){const pid=document.getElementById('extra-player
 window.saveAtt=function(sid){if(!hasStaffAccess()){openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));return;}const s=normSat(normalizeSession(sessions[sid]));const att={};document.querySelectorAll('.ci input:checked').forEach(inp=>{const lab=inp.closest('.ci');const pid=lab.dataset.pid;let cid=lab.dataset.court;const sel=document.querySelector('select[data-assign-pid="'+pid+'"]');if(sel)cid=sel.value;if(isSatDate(s))cid='court1';if(pid&&cid){const p=players[pid]||{},app=(s.applicants||{})[pid]||{};att[pid]={playerId:pid,playerName:app.playerName||p.name||'',playerLevel:app.level||app.playerLevel||p.level||'',courtId:cid,extra:!!((s.attended||{})[pid]||{}).extra};}});const lines=courtArr(s).map(c=>{const n=Object.values(att).filter(a=>a.courtId===c.id).length;return courtLbl(s,c)+': '+n+' fő';}).join('\n');if(!confirm('Minden jelenlét rögzítve van?\n\n'+lines+'\n\nLezárod az edzést?'))return;fbSet('sessions/'+sid+'/attended',Object.keys(att).length?att:null).then(()=>fbSet('sessions/'+sid+'/status','closed')).then(()=>{toast('Edzés lezárva.');renderAttSel();});};
 
 const oldRenderCoachWeek67=window.renderCoachWeek;window.renderCoachWeek=function(){if(!document.getElementById('coach-grid')){if(oldRenderCoachWeek67)return oldRenderCoachWeek67();return;}const today=new Date();today.setHours(0,0,0,0);const mon=monday(new Date(today.getTime()+coachOff*7*86400000));document.getElementById('coach-lbl').textContent=weekLabel(mon);const isos=[];for(let i=0;i<6;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);isos.push(toISO(d));}Promise.all(isos.map(ensureAutoSession)).then(()=>{let html='';for(let i=0;i<6;i++){const iso=isos[i],sess=normSat(normalizeSession(sessions[autoId(iso)])),sat=isSatDate(sess);html+='<div class="cdc'+(iso===toISO(today)?' today':'')+'"><div class="cdch"><div class="cdcn">'+DAYS_L[i]+'</div><div class="cdcd">'+fmtShort(iso)+'</div></div>'+courtArr(sess).map(c=>{const apps=applList(sess).filter(a=>applicantCourt(sess,a)===c.id),added=addedOn(sess,c.id);return '<div class="csb"><div class="cst">'+showTime(sess)+' · '+courtLbl(sess,c)+'</div><div class="csc2">'+(sat?'':((LVLS[c.level]||'')+' · '))+((c.fee||DEF_FEE).toLocaleString('hu-HU'))+' Ft · Edző: '+e(c.coachName||staffName(c.coachId)||'—')+' · Jelentkezett: '+apps.length+' | Hozzáadott: '+added+'</div>'+ (sat?satTimeEditor(sess):'') +'<div class="cnm">'+(apps.map(a=>players[a.playerId]?.name).filter(Boolean).join(', ')||'Nincs bejelentkező')+'</div></div>';}).join('')+'</div>';}document.getElementById('coach-grid').innerHTML=html;});};
-setTimeout(()=>{try{const t=document.querySelector('.logo em');if(t)t.textContent='Felnőtt Tenisz V6.7';if(document.getElementById('sec-home')?.classList.contains('active'))renderHome();if(document.getElementById('sec-jelenlet')?.classList.contains('active'))renderAttSel();if(document.getElementById('sec-edzo')?.classList.contains('active'))renderCoachWeek();}catch(err){console.error(err);}},150);
+setTimeout(()=>{try{const t=document.querySelector('.logo em');if(t)t.textContent='Felnőtt Tenisz V6.7';if(document.getElementById('sec-home')?.classList.contains('active'))renderHome();if(document.getElementById('sec-jelenlét')?.classList.contains('active'))renderAttSel();if(document.getElementById('sec-edzo')?.classList.contains('active'))renderCoachWeek();}catch(err){console.error(err);}},150);
 })();
 </script>
 
@@ -1681,7 +1681,7 @@ setTimeout(()=>{try{const t=document.querySelector('.logo em');if(t)t.textConten
 
   var oldRenderAtt=window.renderAttForm;
   if(typeof oldRenderAtt==='function'){window.renderAttForm=function(){oldRenderAtt.apply(this,arguments);setTimeout(cleanLegacySatEditors672,20);};}
-  setTimeout(function(){try{var t=document.querySelector('.logo em');if(t)t.textContent='Felnőtt Tenisz V6.7.2';if(document.getElementById('sec-home')&&document.getElementById('sec-home').classList.contains('active'))renderHome();if(document.getElementById('sec-edzo')&&document.getElementById('sec-edzo').classList.contains('active'))renderCoachWeek();if(document.getElementById('sec-jelenlet')&&document.getElementById('sec-jelenlet').classList.contains('active'))renderAttSel();}catch(e){}},150);
+  setTimeout(function(){try{var t=document.querySelector('.logo em');if(t)t.textContent='Felnőtt Tenisz V6.7.2';if(document.getElementById('sec-home')&&document.getElementById('sec-home').classList.contains('active'))renderHome();if(document.getElementById('sec-edzo')&&document.getElementById('sec-edzo').classList.contains('active'))renderCoachWeek();if(document.getElementById('sec-jelenlét')&&document.getElementById('sec-jelenlét').classList.contains('active'))renderAttSel();}catch(e){}},150);
 })();
 </script>
 
@@ -2864,7 +2864,7 @@ label.light-row input[type="checkbox"]{
   if(typeof prevGoSec718==='function'){
     window.goSec=function(id,btn){
       const r=prevGoSec718.apply(this,arguments);
-      if(id==='jelenlet'){
+      if(id==='jelenlét'){
         setTimeout(function(){
           if(typeof hasStaffAccess!=='function' || hasStaffAccess()) openAttDate718(currentTarget718());
         },0);
@@ -2951,7 +2951,7 @@ label.light-row input[type="checkbox"]{
   if(typeof oldGoSec719==='function'){
     window.goSec=function(id,btn){
       const r=oldGoSec719.apply(this,arguments);
-      if(id==='jelenlet') setTimeout(requestCurrent719,0);
+      if(id==='jelenlét') setTimeout(requestCurrent719,0);
       return r;
     };
   }
@@ -2963,7 +2963,7 @@ label.light-row input[type="checkbox"]{
     window.renderAttSel=function(){
       const r=oldRenderAttSel719.apply(this,arguments);
       try{
-        const sec=document.getElementById('sec-jelenlet');
+        const sec=document.getElementById('sec-jelenlét');
         if(sec&&sec.classList.contains('active')&&window.__attForceCurrent719) place719();
       }catch(e){console.error(e);}
       return r;
@@ -2973,14 +2973,54 @@ label.light-row input[type="checkbox"]{
   // A meglévő Mai / aktuális gomb ugyanazt a biztos logikát használja.
   window.goAttToday=function(){ requestCurrent719(); };
 
-  try{document.title='MLTC Tennis V7.1.10';}catch(e){}
-  setTimeout(function(){try{document.title='MLTC Tennis V7.1.9';}catch(e){}},300);
+  try{document.title='MLTC Tennis V7.1.11';}catch(e){}
+  setTimeout(function(){try{document.title='MLTC Tennis V7.1.11';}catch(e){}},300);
 })();
 </script>
 <!-- /V7.1.9 -->
 
 
 <!-- V7.1.10 – A napi/heti navigáció mellett a Mai / aktuális gyorsgomb visszaállítva. -->
+<!-- V7.1.11 – Jelenlét belépési dátum + verziószám szinkron javítás -->
+<script id="v7-1-11-att-entry-version-fix">
+(function(){
+  // A szekció belső azonosítója ékezetes: "jelenlét". A korábbi patch
+  // "jelenlet" alakot figyelt, ezért belépéskor nem futott le az aktuális napra ugrás.
+  function current711(){
+    const d=new Date(); d.setHours(12,0,0,0);
+    const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+  }
+  function jump711(){
+    if(typeof openAttDate718==='function'){
+      openAttDate718(current711());
+    } else if(typeof goAttToday==='function'){
+      goAttToday();
+    }
+  }
+
+  const prevGoSec711=window.goSec;
+  if(typeof prevGoSec711==='function'){
+    window.goSec=function(id,btn){
+      const r=prevGoSec711.apply(this,arguments);
+      if(id==='jelenlét'){
+        // Közvetlenül is próbáljuk, majd még egyszer rövid késleltetéssel,
+        // hogy a Firebase/lista frissítése után is az aktuális nap maradjon.
+        setTimeout(jump711,0);
+        setTimeout(jump711,250);
+      }
+      return r;
+    };
+  }
+
+  // A böngészőfül verziója mindig egyezzen a HTML verziójával.
+  function title711(){ try{ document.title='MLTC Tennis V7.1.11'; }catch(e){} }
+  title711();
+  setTimeout(title711,300);
+  setTimeout(title711,1000);
+})();
+</script>
+<!-- /V7.1.11 -->
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
