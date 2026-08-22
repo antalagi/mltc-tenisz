@@ -2594,7 +2594,7 @@ setTimeout(function(){try{var title=document.querySelector('.logo em');if(title)
         <tr><td>Ápr. 15 – Okt. 15</td><td>Szabadtéri</td><td><strong>3 000 Ft</strong></td><td><strong>3 000 Ft</strong></td></tr>
         <tr><td>Okt. 16 – Ápr. 14</td><td>Fedett</td><td><strong>8 000 Ft</strong></td><td><strong>6 100 Ft</strong></td></tr>
       </tbody></table></div>
-      <div class="g-tip gold"><p>Szabadtéri időszakban, ha világítás szükséges, jelöld be a <strong>Világítás (+1 000 Ft)</strong> pipát. A pályadíj ilyenkor 3 000 Ft-ról 4 000 Ft-ra nő; a pipa kivételével visszaáll 3 000 Ft-ra.</p></div>
+      <div class="g-tip gold"><p>Szabadtéri időszakban, ha világítás szükséges, jelöld be a <strong>Világítás (+1 000 Ft)</strong> felirat előtt, ugyanazon a soron található pipát. A pályadíj ilyenkor 3 000 Ft-ról 4 000 Ft-ra nő; a pipa kivételével visszaáll 3 000 Ft-ra.</p></div>
 
       <div class="g-sec">Játékosok kezelése</div>
       <div class="g-step"><div class="g-num gold">→</div><div class="g-body"><h4>Adatok módosítása</h4><p>Az adott játékosnál kattints az <strong>„Adatok módosítása”</strong> gombra. Itt módosítható a név, e-mail cím és hivatalos szint, majd <strong>Mentés</strong>. A játékost nem kell törölni és újra felvenni.</p></div></div>
@@ -2710,6 +2710,47 @@ setTimeout(function(){try{var title=document.querySelector('.logo em');if(title)
 </script>
 <!-- /V7.1.6 -->
 
+
+
+<!-- V7.1.7 – világítás checkbox pozíciója: közvetlenül a felirat előtt, egy sorban -->
+<style id="v7-1-7-lighting-layout-css">
+label.light-row{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:7px !important;
+  width:max-content !important;
+  max-width:100% !important;
+  margin:6px 0 8px !important;
+  color:var(--mu) !important;
+  font-size:11px !important;
+  line-height:1.25 !important;
+  text-align:left !important;
+  white-space:nowrap !important;
+}
+label.light-row input[type="checkbox"]{
+  position:static !important;
+  display:inline-block !important;
+  flex:0 0 auto !important;
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  margin:0 !important;
+  padding:0 !important;
+  transform:none !important;
+  vertical-align:middle !important;
+}
+@media(max-width:680px){
+  label.light-row{white-space:normal !important;}
+}
+</style>
+<script id="v7-1-7-title-patch">
+(function(){
+  try{ document.title='MLTC Tennis V7.1.7'; }catch(e){}
+  setTimeout(()=>{try{document.title='MLTC Tennis V7.1.7';}catch(e){}},300);
+})();
+</script>
+<!-- /V7.1.7 -->
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
