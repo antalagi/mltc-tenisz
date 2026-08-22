@@ -1984,6 +1984,301 @@ setTimeout(function(){try{var title=document.querySelector('.logo em');if(title)
 })();
 </script>
 
+
+<!-- V7.1.3 – kétpályás edzőkezelés és pályamegőrzés -->
+<style id="v7-1-3-css">
+  .coach-select-v713{max-width:190px;margin-top:0;font-size:11px;padding:5px 7px}
+</style>
+<script id="v7-1-3-two-court-coach-fix">
+(function(){
+  /*
+    V7.1.3
+    - A kétpályás automatikus napok pályaszerkezetét mindig megőrzi.
+    - Régi / hibásan egy pályára zsugorodott automatikus szerda-csütörtök
+      esetén a hiányzó pálya visszaépül, a jelentkezések megtartásával.
+    - Edző módosításakor kizárólag az adott pálya coachId/coachName mezői
+      frissülnek, a másik pálya nem íródhat felül.
+    - Bármely belépett staff (Judit, Hajni, Szilvi / admin) beállíthatja
+      mindkét pályán az edzőt.
+    - Edzőként csak Hajni és Szilvi választható.
+  */
+
+  const COACH_NAMES_713 = ['hajni','szilvi'];
+
+  function esc713(v){
+    return String(v==null?'':v).replace(/[&<>"']/g,m=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+  }
+
+  function dow713(iso){
+    try{return new Date(iso).getDay();}catch(e){return -1;}
+  }
+
+  function expectedDefs713(iso){
+    const d = dow713(iso);
+    if(d===1) return [{id:'court1',name:'Pálya 1',level:'kezdo'}];
+    if(d===2) return [{id:'court1',name:'Pálya 1',level:'halado'}];
+    if(d===3) return [
+      {id:'court1',name:'Pálya 1',level:'kezdo'},
+      {id:'court2',name:'Pálya 2',level:'kozep'}
+    ];
+    if(d===4) return [
+      {id:'court1',name:'Pálya 1',level:'kozep'},
+      {id:'court2',name:'Pálya 2',level:'halado'}
+    ];
+    if(d===5) return [{id:'court1',name:'Pálya 1',level:'kozep'}];
+    if(d===6) return [{id:'court1',name:'Pálya 1',level:''}];
+    return [];
+  }
+
+  function fee713(iso){
+    try{return getSezonFee(iso)||DEF_FEE||3000;}catch(e){return 3000;}
+  }
+
+  function repairSessionLocal713(s){
+    if(!s || !s.date || s.isAuto===false) return {session:s, changed:false, missing:{}};
+
+    const defs = expectedDefs713(s.date);
+    if(!defs.length) return {session:s, changed:false, missing:{}};
+
+    if(!s.courts || Array.isArray(s.courts)) s.courts = {};
+    let changed = false;
+    const missing = {};
+    const f = fee713(s.date);
+
+    defs.forEach(def=>{
+      const old = s.courts[def.id];
+      if(!old){
+        const fresh = {
+          name:def.name,
+          fee:f,
+          coachId:'',
+          coachName:''
+        };
+        if(def.level) fresh.level=def.level;
+        if(dow713(s.date)===6) fresh.saturday=true;
+        s.courts[def.id] = fresh;
+        missing[def.id] = fresh;
+        changed = true;
+      }else{
+        // Csak a hiányzó szerkezeti mezőket töltjük fel,
+        // a már rögzített edzőt/díjat soha nem írjuk felül.
+        if(!old.name){old.name=def.name; changed=true;}
+        if(def.level && !old.level){old.level=def.level; changed=true;}
+        if(old.fee==null){old.fee=f; changed=true;}
+      }
+    });
+
+    // A már meglévő jelentkezésekhez tartozó pályaazonosítókat nem módosítjuk.
+    // Ha court2 korábban eltűnt, az ide sorolt jelentkezők ettől újra láthatóvá válnak.
+    return {session:s, changed, missing};
+  }
+
+  function persistMissing713(sid, missing){
+    const ids = Object.keys(missing||{});
+    if(!ids.length) return Promise.resolve();
+    const updates = {};
+    ids.forEach(cid=>updates[cid]=missing[cid]);
+    return db.ref('sessions/'+sid+'/courts').update(updates).catch(err=>{
+      console.error('V7.1.3 pályajavítás mentési hiba', err);
+    });
+  }
+
+  function repairOne713(sid){
+    const s = sessions && sessions[sid];
+    if(!s) return Promise.resolve(null);
+    const r = repairSessionLocal713(s);
+    if(r.changed && r.missing && Object.keys(r.missing).length){
+      return persistMissing713(sid,r.missing).then(()=>r.session);
+    }
+    return Promise.resolve(r.session);
+  }
+
+  function repairAllLocal713(){
+    if(!sessions) return;
+    Object.keys(sessions).forEach(sid=>{
+      const r=repairSessionLocal713(sessions[sid]);
+      if(r.changed && r.missing && Object.keys(r.missing).length){
+        persistMissing713(sid,r.missing);
+      }
+    });
+  }
+
+  function coachEntries713(){
+    return Object.entries(staff||{}).filter(([id,s])=>{
+      if(!s || s.active===false) return false;
+      const n=String(s.name||id).toLowerCase();
+      const k=String(id).toLowerCase();
+      return COACH_NAMES_713.some(x=>n.includes(x)||k.includes(x));
+    }).sort((a,b)=>(a[1].name||a[0]).localeCompare((b[1].name||b[0]),'hu'));
+  }
+
+  function currentIsCoach713(){
+    if(!currentStaff) return false;
+    const n=String(currentStaff.name||currentStaff.id||'').toLowerCase();
+    return COACH_NAMES_713.some(x=>n.includes(x));
+  }
+
+  window.coachOptions=function(selected='',includeNone=true){
+    const opts=coachEntries713().map(([id,s])=>
+      `<option value="${esc713(id)}" ${id===selected?'selected':''}>${esc713(s.name||id)}</option>`
+    ).join('');
+    return (includeNone?'<option value="">Nincs kijelölve</option>':'')+opts;
+  };
+
+  // Fontos: nem teljes sessiont mentünk, kizárólag a kiválasztott pálya edzőadatait.
+  window.setCoach=function(sid,cid,staffId){
+    if(!(typeof hasStaffAccess==='function' && hasStaffAccess())){
+      openStaffLogin('edzo',document.getElementById('nav-edzo'));
+      return;
+    }
+
+    const selected = staffId ? (staff||{})[staffId] : null;
+    if(staffId){
+      const ok = coachEntries713().some(([id])=>id===staffId);
+      if(!ok){
+        toast('Edzőként Hajni vagy Szilvi választható.');
+        return;
+      }
+    }
+
+    return repairOne713(sid).then(s=>{
+      if(!s) return;
+      if(!s.courts || !s.courts[cid]){
+        toast('A kiválasztott pálya nem található.');
+        return;
+      }
+
+      const name = staffId ? ((selected&&selected.name)||staffId) : '';
+
+      // Helyi állapot frissítése, a többi pálya érintetlen.
+      s.courts[cid].coachId = staffId||'';
+      s.courts[cid].coachName = name;
+      if(sessions && sessions[sid]) sessions[sid].courts = s.courts;
+
+      return db.ref(`sessions/${sid}/courts/${cid}`).update({
+        coachId:staffId||'',
+        coachName:name
+      }).then(()=>{
+        toast(staffId?`Edző mentve: ${name}`:'Edző kijelölése törölve.');
+        try{repairAllLocal713();}catch(e){}
+        try{if(document.getElementById('sec-home')?.classList.contains('active')) renderHome();}catch(e){}
+        try{if(document.getElementById('sec-edzo')?.classList.contains('active')) renderCoachWeek();}catch(e){}
+        try{if(document.getElementById('sec-jelenlét')?.classList.contains('active')) renderAttSel();}catch(e){}
+        try{
+          if(typeof modalId!=='undefined' && modalId && sessions[modalId] && typeof openDayModal==='function'){
+            openDayModal(sessions[modalId].date);
+          }
+        }catch(e){}
+      }).catch(err=>{
+        console.error(err);
+        toast('⚠️ Edző mentési hiba.');
+      });
+    });
+  };
+
+  window.claimCoach=function(sid,cid){
+    if(!currentStaff){
+      openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));
+      return;
+    }
+    if(!currentIsCoach713()){
+      toast('Válaszd ki Hajnít vagy Szilvit az Edző mezőben.');
+      return;
+    }
+    return setCoach(sid,cid,currentStaff.id);
+  };
+
+  window.coachBlock=function(s,c){
+    const disabled = !!(s && s.status==='closed' && !isAdmin);
+    const mine = (!disabled && currentIsCoach713())
+      ? `<button class="btn btn-gold btn-sm" onclick="claimCoach('${esc713(s.id)}','${esc713(c.id)}')">Én tartottam</button>`
+      : '';
+    return `<div class="att-coach-row">
+      <strong>Edző:</strong>
+      <select class="coach-select coach-select-v713" ${disabled?'disabled':''}
+        onchange="setCoach('${esc713(s.id)}','${esc713(c.id)}',this.value)">
+        ${coachOptions(c.coachId||'',true)}
+      </select>
+      ${mine}
+    </div>`;
+  };
+
+  // Minden fontos nézet előtt helyreállítjuk a standard automatikus pályaszerkezetet.
+  const oldRenderHome713 = window.renderHome;
+  if(typeof oldRenderHome713==='function'){
+    window.renderHome=function(){
+      repairAllLocal713();
+      return oldRenderHome713.apply(this,arguments);
+    };
+  }
+
+  const oldRenderCoachWeek713 = window.renderCoachWeek;
+  if(typeof oldRenderCoachWeek713==='function'){
+    window.renderCoachWeek=function(){
+      repairAllLocal713();
+      return oldRenderCoachWeek713.apply(this,arguments);
+    };
+  }
+
+  const oldRenderAttSel713 = window.renderAttSel;
+  if(typeof oldRenderAttSel713==='function'){
+    window.renderAttSel=function(){
+      repairAllLocal713();
+      const r=oldRenderAttSel713.apply(this,arguments);
+      setTimeout(()=>{
+        // A korábbi verzióban az Edzés lezárása gomb kétszer is megjelenhetett.
+        const el=document.getElementById('att-form');
+        if(el){
+          const btns=[...el.querySelectorAll('button')].filter(b=>
+            (b.textContent||'').trim().includes('Edzés lezárása')
+          );
+          btns.slice(1).forEach(b=>b.remove());
+        }
+      },0);
+      return r;
+    };
+  }
+
+  const oldRenderAttForm713 = window.renderAttForm;
+  if(typeof oldRenderAttForm713==='function'){
+    window.renderAttForm=function(){
+      repairAllLocal713();
+      const r=oldRenderAttForm713.apply(this,arguments);
+      setTimeout(()=>{
+        const el=document.getElementById('att-form');
+        if(el){
+          const btns=[...el.querySelectorAll('button')].filter(b=>
+            (b.textContent||'').trim().includes('Edzés lezárása')
+          );
+          btns.slice(1).forEach(b=>b.remove());
+        }
+      },0);
+      return r;
+    };
+  }
+
+  const oldOpenDayModal713 = window.openDayModal;
+  if(typeof oldOpenDayModal713==='function'){
+    window.openDayModal=function(iso){
+      repairAllLocal713();
+      return oldOpenDayModal713.apply(this,arguments);
+    };
+  }
+
+  // Firebase betöltés után is fusson le egyszer a javítás.
+  setTimeout(()=>{
+    try{
+      repairAllLocal713();
+      if(document.getElementById('sec-home')?.classList.contains('active')) renderHome();
+    }catch(e){console.error(e);}
+  },700);
+
+})();
+</script>
+<!-- /V7.1.3 -->
+
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
