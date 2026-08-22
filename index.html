@@ -2844,7 +2844,7 @@ label.light-row input[type="checkbox"]{
     left.innerHTML='<button class="btn-nav att-week-btn-718" title="Előző hét" onclick="moveAttWeek718(-1)">«</button><button class="btn-nav" title="Előző nap" onclick="moveAttCalendar718(-1)">←</button>';
     const newRight=document.createElement('div');
     newRight.className='att-nav-side-718';
-    newRight.innerHTML='<button class="btn-nav" title="Következő nap" onclick="moveAttCalendar718(1)">→</button><button class="btn-nav att-week-btn-718" title="Következő hét" onclick="moveAttWeek718(1)">»</button>';
+    newRight.innerHTML='<button class="btn-nav" title="Következő nap" onclick="moveAttCalendar718(1)">→</button><button class="btn-nav att-week-btn-718" title="Következő hét" onclick="moveAttWeek718(1)">»</button><button class="btn btn-ghost btn-sm" title="Vissza az aktuális naphoz" onclick="goAttToday()">Mai / aktuális</button>';
     header.replaceChild(left,leftOld);
     header.replaceChild(newRight,right);
     if(center) center.style.minWidth='0';
@@ -2894,6 +2894,93 @@ label.light-row input[type="checkbox"]{
 </script>
 <!-- /V7.1.8 -->
 
+
+<!-- V7.1.9 – Jelenlét aktuális dátum: adatbetöltés utáni biztos pozicionálás -->
+<script id="v7-1-9-att-current-date-load-fix">
+(function(){
+  function iso719(d){
+    const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+  }
+  function target719(){
+    const d=new Date(); d.setHours(12,0,0,0);
+    return iso719(d);
+  }
+  function sorted719(){
+    try{
+      return (typeof allSessions==='function'?allSessions():Object.values(window.sessions||{}))
+        .map(function(s){return typeof normalizeSession==='function'?normalizeSession(s):s;})
+        .filter(function(s){return s&&s.date;})
+        .sort(function(a,b){return String(a.date+(a.time||'')).localeCompare(String(b.date+(b.time||'')));});
+    }catch(e){ return []; }
+  }
+  function place719(){
+    const arr=sorted719();
+    if(!arr.length) return false;
+    const wanted=window.__attWantedDate719||target719();
+    window.__attDaySessions654=arr;
+    let idx=arr.findIndex(function(s){return s.date===wanted;});
+    if(idx<0){
+      // Ha a mai naphoz még nincs külön session, az első későbbi edzésre,
+      // ennek hiányában a legutóbbi edzésre állunk.
+      idx=arr.findIndex(function(s){return s.date>wanted;});
+      if(idx<0) idx=arr.length-1;
+    }
+    window.__attDayIndex654=idx;
+    try{ if(typeof renderAttForm==='function') renderAttForm(); }catch(e){console.error(e);}
+    return true;
+  }
+  function requestCurrent719(){
+    window.__attWantedDate719=target719();
+    window.__attForceCurrent719=true;
+    // Firebase-adatok betöltésére is várunk; nem állítjuk 0-ra az indexet üres adathalmaznál.
+    let tries=0;
+    const timer=setInterval(function(){
+      tries++;
+      if(place719()){
+        window.__attForceCurrent719=false;
+        clearInterval(timer);
+      } else if(tries>=40){
+        clearInterval(timer);
+      }
+    },100);
+  }
+
+  // A Jelenlét minden megnyitásakor kérjük az aktuális dátumot.
+  const oldGoSec719=window.goSec;
+  if(typeof oldGoSec719==='function'){
+    window.goSec=function(id,btn){
+      const r=oldGoSec719.apply(this,arguments);
+      if(id==='jelenlet') setTimeout(requestCurrent719,0);
+      return r;
+    };
+  }
+
+  // Ha a Firebase listener később tölti újra a session-listát, akkor is az aktuális dátum nyerjen,
+  // ne a korábban 0-ra állított index (június 15.).
+  const oldRenderAttSel719=window.renderAttSel;
+  if(typeof oldRenderAttSel719==='function'){
+    window.renderAttSel=function(){
+      const r=oldRenderAttSel719.apply(this,arguments);
+      try{
+        const sec=document.getElementById('sec-jelenlet');
+        if(sec&&sec.classList.contains('active')&&window.__attForceCurrent719) place719();
+      }catch(e){console.error(e);}
+      return r;
+    };
+  }
+
+  // A meglévő Mai / aktuális gomb ugyanazt a biztos logikát használja.
+  window.goAttToday=function(){ requestCurrent719(); };
+
+  try{document.title='MLTC Tennis V7.1.10';}catch(e){}
+  setTimeout(function(){try{document.title='MLTC Tennis V7.1.9';}catch(e){}},300);
+})();
+</script>
+<!-- /V7.1.9 -->
+
+
+<!-- V7.1.10 – A napi/heti navigáció mellett a Mai / aktuális gyorsgomb visszaállítva. -->
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
