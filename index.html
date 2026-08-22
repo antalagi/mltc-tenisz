@@ -1741,5 +1741,219 @@ setTimeout(()=>{try{const t=document.querySelector('.logo em');if(t)t.textConten
 })();
 </script>
 
+
+<style id="v7-1-mismatch-only-css">
+.mismatch-box-v71{margin-top:12px;padding:12px;border:1px solid rgba(245,200,66,.35);border-radius:12px;background:rgba(245,200,66,.05)}
+.mismatch-help-v71{font-size:11px;color:var(--mu);line-height:1.45;margin:4px 0 10px}
+.mismatch-row-v71{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.mismatch-row-v71 select{max-width:260px}.actual-group-note-v71{font-size:10px;color:var(--go);margin-left:4px}
+</style>
+<script id="v7-1-mismatch-only-patch">
+(function(){
+function esc71(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+function isSat71(s){try{return new Date((s&&s.date)||s).getDay()===6;}catch(e){return false;}}
+function cLabel71(s,c){var name=(c&&c.name)||'Pálya 1'; if(isSat71(s))return esc71(name); var lvl=c&&c.level?(LVLS[c.level]||c.level):''; return lvl?esc71(name+' – '+lvl):esc71(name);}
+function gLabel71(s,c){var name=(c&&c.name)||'Pálya 1'; if(isSat71(s))return 'Szombati csoport ('+name+')'; var lvl=c&&c.level?(LVLS[c.level]||c.level):'Csoport'; return lvl+' ('+name+')';}
+function actPlayers71(){var list=typeof playerList==='function'?playerList():Object.values(players||{}); return list.filter(function(p){return p&&p.active!==false;}).sort(function(a,b){return (a.name||'').localeCompare((b.name||''),'hu');});}
+window.renderAttForm=function(){
+ var el=document.getElementById('att-form'); if(!el)return;
+ if(!window.__attDaySessions654||!window.__attDaySessions654.length){ if(typeof collectSessions==='function') window.__attDaySessions654=collectSessions(); }
+ var arr=window.__attDaySessions654||[]; if(!arr.length){el.innerHTML='<div class="empty"><div class="ic">📋</div><p>Nincs kezelhető edzés.</p></div>';return;}
+ var s=normalizeSession(arr[window.__attDayIndex654||0]); if(!s){el.innerHTML='';return;}
+ var closed=s.status==='closed', dis=closed&&!isAdmin, date=new Date(s.date), days=['VASÁRNAP','HÉTFŐ','KEDD','SZERDA','CSÜTÖRTÖK','PÉNTEK','SZOMBAT'], courts=courtArray(s);
+ var closeBtn=closed?(isAdmin?'<button class="btn btn-gold btn-sm" onclick="unlockSession(\''+s.id+'\')">Admin feloldás</button>':'<span class="badge bg-g">Lezárt</span>'):'<button class="btn btn-lime btn-sm" onclick="saveAtt(\''+s.id+'\')">🔒 Edzés lezárása</button>';
+ var html='<div class="card" style="max-width:760px;margin-left:auto;margin-right:auto"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><button class="btn-nav" onclick="moveAttDay(-1)">←</button><div style="text-align:center;flex:1"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.35rem;letter-spacing:2px;color:var(--lime)">'+esc71(fmtDate(s.date).toUpperCase()+' · '+days[date.getDay()])+'</div></div><div style="display:flex;gap:8px;align-items:center"><button class="btn-nav" onclick="moveAttDay(1)">→</button><button class="btn btn-ghost btn-sm" onclick="goAttToday()">Mai / aktuális</button></div></div><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px"><div><div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.1rem;letter-spacing:2px;color:var(--lime)">'+esc71(s.time||'időpont nélkül')+' · '+courts.length+' pálya</div><div style="color:var(--mu);font-size:12px">'+(closed?'🔒 Lezárt edzés – csak admin módosíthatja':'Pipáld be a tényleges megjelenteket.')+'</div></div>'+closeBtn+'</div>';
+ var apps=applList(s), atts=attList(s);
+ courts.forEach(function(c){
+  var assigned=apps.filter(function(a){return applicantCourt(s,a)===c.id;});
+  var extras=atts.filter(function(a){return a.courtId===c.id&&!(s.applicants||{})[a.playerId];});
+  var rows=assigned.map(function(a){return {type:'app',a:a};}).concat(extras.map(function(a){return {type:'extra',a:a};}));
+  var checked=rows.filter(function(r){return (s.attended||{})[r.a.playerId]&&(s.attended||{})[r.a.playerId].courtId===c.id;}).length;
+  var per=checked?Math.round(((c.fee||DEF_FEE)/checked)):null;
+  html+='<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>'+cLabel71(s,c)+' · '+((c.fee||DEF_FEE).toLocaleString('hu-HU'))+' Ft '+(per?'→ '+per.toLocaleString('hu-HU')+' Ft/fő':'')+'</h3>'+coachBlock(s,c)+'<div class="cg">';
+  if(rows.length){ html+=rows.map(function(row){var a=row.a,p=(players||{})[a.playerId]||{},pid=a.playerId,name=a.playerName||p.name||pid,level=a.level||a.playerLevel||p.level||'',chk=(s.attended||{})[pid],actual=(s.attended||{})[pid]&&(s.attended||{})[pid].actualLevel;var actualNote=actual&&actual!==level?'<span class="actual-group-note-v71">tényleges: '+esc71(LVLS[actual]||actual)+'</span>':'';var del=row.type==='extra'&&!dis?'<button class="extra-remove" onclick="event.preventDefault();event.stopPropagation();removeExtraAtt661(\''+esc71(s.id)+'\',\''+esc71(pid)+'\')">Törlés</button>':'';return '<label class="ci'+(chk?' chk':'')+'" onclick="event.preventDefault(); toggleAtt(this)" data-pid="'+esc71(pid)+'" data-court="'+esc71(c.id)+'"><input type="checkbox" '+(chk?'checked':'')+' '+(dis?'disabled':'')+'><span class="cm"></span><span>'+esc71(name)+'</span>'+lv(level)+'<span style="font-size:10px;color:'+(row.type==='extra'?'var(--go)':'var(--lime)')+'">'+(row.type==='extra'?'utólag hozzáadva':'✓ jel.')+'</span>'+actualNote+del+'</label>';}).join(''); } else html+='<span style="color:var(--mu);font-size:12px">Nincs ide sorolt bejelentkező.</span>';
+  html+='</div></div>';
+ });
+ var mismatch=apps.filter(function(a){return !applicantCourt(s,a);});
+ if(mismatch.length){ html+='<div class="mismatch-box-v71"><h3 style="color:var(--go)">⚠️ Eltérő szintű jelentkezők</h3><div class="mismatch-help-v71">Ha a játékos tényleg részt vett az edzésen, pipáld be, és válaszd ki, melyik csoporttal / pályán játszott. Egy pályás napon az egyetlen elérhető csoport lesz kiválasztható.</div>';
+  html+=mismatch.map(function(a){var p=(players||{})[a.playerId]||{},pid=a.playerId,old=(s.attended||{})[pid]||{},selected=old.courtId||(courts[0]&&courts[0].id)||'',chk=!!old.playerId; return '<div class="mismatch-row-v71"><label class="ci'+(chk?' chk':'')+'" onclick="event.preventDefault(); toggleAtt(this)" data-pid="'+esc71(pid)+'" data-court=""><input type="checkbox" '+(chk?'checked':'')+' '+(dis?'disabled':'')+'><span class="cm"></span><span>'+esc71(a.playerName||p.name||pid)+'</span>'+lv(a.level||a.playerLevel||p.level)+'</label><select data-assign-pid="'+esc71(pid)+'" '+(dis?'disabled':'')+'>'+courts.map(function(c){return '<option value="'+esc71(c.id)+'" '+(c.id===selected?'selected':'')+'>'+esc71(gLabel71(s,c))+'</option>';}).join('')+'</select></div>';}).join(''); html+='</div>'; }
+ var extraOpts=actPlayers71().filter(function(p){return !(s.applicants||{})[p.id]&&!(s.attended||{})[p.id];});
+ html+='<div style="margin-top:12px;padding:12px;border:1px solid var(--b1);border-radius:12px"><h3>Be nem jelentkezett, de megjelent játékos hozzáadása</h3><div class="fr"><div class="fg w"><select id="extra-player" '+(dis?'disabled':'')+'><option value="">— Válassz játékost —</option>'+extraOpts.map(function(p){return '<option value="'+esc71(p.id)+'">'+esc71(p.name)+(p.level?' – '+(LVLS[p.level]||p.level):'')+'</option>';}).join('')+'</select></div><div class="fg"><select id="extra-court" '+(dis?'disabled':'')+'>'+courts.map(function(c){return '<option value="'+esc71(c.id)+'">'+esc71(gLabel71(s,c))+'</option>';}).join('')+'</select></div><button class="btn btn-gold" onclick="addExtraAtt(\''+s.id+'\')" '+(dis?'disabled':'')+'>+ Hozzáadás</button></div><div class="v6-note">A hozzáadott játékos ugyanúgy beleszámít a pályadíjba.</div></div>'+(closed&&isAdmin?'<div style="text-align:right;margin-top:10px"><button class="btn btn-gold btn-sm" onclick="unlockSession(\''+s.id+'\')">Admin feloldás</button></div>':'<div style="text-align:right;margin-top:10px">'+(!closed?'<button class="btn btn-lime btn-sm" onclick="saveAtt(\''+s.id+'\')">🔒 Edzés lezárása</button>':'')+'</div>')+'</div>';
+ el.innerHTML=html;
+};
+window.toggleAtt=function(el){
+ if(!hasStaffAccess()){openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));return;}
+ var inp=el.querySelector('input'); if(inp.disabled)return; el.classList.toggle('chk'); inp.checked=el.classList.contains('chk');
+ var s=(window.__attDaySessions654||[])[window.__attDayIndex654||0]; if(!s||!s.id)return;
+ var pid=el.dataset.pid,cid=el.dataset.court||'',sel=document.querySelector('select[data-assign-pid="'+pid+'"]'); if(sel)cid=sel.value;
+ if(inp.checked){ if(!cid){toast('Válaszd ki, melyik csoporttal játszott.');el.classList.remove('chk');inp.checked=false;return;} var sess=normalizeSession(sessions[s.id]||s),court=courtArray(sess).find(function(c){return c.id===cid;})||{},p=(players||{})[pid]||{},app=(sess.applicants||{})[pid]||{},old=(sess.attended||{})[pid]||{}; var val={playerId:pid,playerName:app.playerName||old.playerName||p.name||'',playerLevel:app.level||app.playerLevel||old.playerLevel||p.level||'',courtId:cid,actualLevel:court.level||'',extra:!!old.extra}; fbSet('sessions/'+s.id+'/attended/'+pid,val).then(function(){renderAttSel();}); } else fbRemove('sessions/'+s.id+'/attended/'+pid).then(function(){renderAttSel();});
+};
+window.saveAtt=function(sid){
+ if(!hasStaffAccess()){openStaffLogin('jelenlét',document.getElementById('nav-jelenlet'));return;} var s=normalizeSession(sessions[sid]); if(!s)return; if(s.status==='closed'&&!isAdmin){toast('Lezárt jelenlétet csak admin módosíthat.');return;}
+ var att={}; document.querySelectorAll('.ci input:checked').forEach(function(inp){var lab=inp.closest('.ci'),pid=lab&&lab.dataset.pid,cid=lab&&lab.dataset.court,sel=document.querySelector('select[data-assign-pid="'+pid+'"]'); if(sel)cid=sel.value; var p=(players||{})[pid]||{},app=(s.applicants||{})[pid]||{},old=(s.attended||{})[pid]||{}; if(pid&&cid){var court=courtArray(s).find(function(c){return c.id===cid;})||{}; att[pid]={playerId:pid,playerName:app.playerName||old.playerName||p.name||'',playerLevel:app.level||app.playerLevel||old.playerLevel||p.level||'',courtId:cid,actualLevel:court.level||'',extra:!!old.extra};}});
+ var lines=courtArray(s).map(function(c){var n=Object.values(att).filter(function(a){return a.courtId===c.id;}).length; return (c.name||'Pálya')+' – '+(isSat71(s)?'szombati csoport':(LVLS[c.level]||'csoport'))+': '+n+' fő';}).join('\n'); if(!confirm('Minden jelenlét rögzítve van?\n\n'+lines+'\n\nLezárod az edzést?'))return;
+ fbSet('sessions/'+sid+'/attended',Object.keys(att).length?att:null).then(function(){return fbSet('sessions/'+sid+'/status','closed');}).then(function(){toast('Edzés lezárva.');try{renderAttSel();renderAttForm();renderSummary();}catch(e){}});
+};
+setTimeout(function(){try{var title=document.querySelector('.logo em');if(title)title.textContent='Felnőtt Tenisz'; if(document.getElementById('sec-jelenlét')&&document.getElementById('sec-jelenlét').classList.contains('active'))renderAttSel();}catch(e){}},120);
+})();
+</script>
+
+
+<script id="v7-1-1-mismatch-freeze-fix">
+(function(){
+  /*
+    V7.1.1 – célzott javítás:
+    - saját szintű jelentkezés működése változatlan
+    - eltérő szintű jelentkezés engedélyezett
+    - eltérő jelentkezés NEM kap automatikus pályát
+    - nem null courtId-val tároljuk, hanem stabil jelöléssel
+    - a tényleges csoport/pálya csak a Jelenlét lapon dől el
+  */
+
+  var MISMATCH_COURT = '__mismatch__';
+
+  function isSaturday711(sess){
+    try {
+      return new Date(sess && sess.date ? sess.date : sess).getDay() === 6;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  /*
+    Fontos: a régebbi kódrészek több helyen applicantCourt()-tal
+    próbálják besorolni a jelentkezőt. Az explicit mismatch jelölést
+    itt mindig pálya nélküliként kezeljük, így nem indul újra
+    automatikus besorolási kör.
+  */
+  window.applicantCourt = function(sess, appl){
+    if(!appl) return null;
+
+    if(isSaturday711(sess)){
+      return 'court1';
+    }
+
+    if(appl.mismatch === true || appl.courtId === MISMATCH_COURT){
+      return null;
+    }
+
+    if(appl.courtId){
+      return appl.courtId;
+    }
+
+    return (typeof autoAssignCourt === 'function')
+      ? autoAssignCourt(sess, appl.level || appl.playerLevel || '')
+      : null;
+  };
+
+  /*
+    A bejelentkezésnél a profil hivatalos szintjét használjuk.
+    Eltérő szint esetén nem próbálunk pályát választani.
+  */
+  window.applyDayModal = function(iso){
+    var playerSel = document.getElementById('home-player');
+    var pid = playerSel ? playerSel.value : '';
+
+    if(!pid){
+      alert('Válassz játékost!');
+      return;
+    }
+
+    var p = (players || {})[pid];
+    if(!p){
+      alert('Nem találom a kiválasztott játékost.');
+      return;
+    }
+
+    var level = p.level || '';
+    if(!level){
+      alert('A játékos szintje nincs beállítva. Szólj az adminnak.');
+      return;
+    }
+
+    var sid = autoId(iso);
+    var sess = sessions && sessions[sid]
+      ? normalizeSession(sessions[sid])
+      : null;
+
+    if(!sess){
+      toast('Az edzés adatai még nem töltődtek be. Próbáld újra.');
+      return;
+    }
+
+    if(sess.applicants && sess.applicants[pid]){
+      toast('Már be vagy jelentkezve!');
+      return;
+    }
+
+    var saturday = isSaturday711(sess);
+    var cid = saturday ? 'court1' : autoAssignCourt(sess, level);
+    var mismatch = !saturday && !cid;
+
+    var app = {
+      playerId: pid,
+      playerName: p.name || '',
+      level: level,
+      playerLevel: level,
+      courtId: mismatch ? MISMATCH_COURT : cid,
+      mismatch: mismatch
+    };
+
+    // A helyi példányt is azonnal frissítjük, hogy a következő render
+    // ugyanazt az állapotot lássa, mint amit Firebase-be mentünk.
+    if(!sessions[sid].applicants) sessions[sid].applicants = {};
+    sessions[sid].applicants[pid] = app;
+
+    fbSet('sessions/' + sid + '/applicants/' + pid, app)
+      .then(function(){
+        var modal = document.getElementById('modal');
+        if(modal) modal.classList.add('hidden');
+
+        toast(
+          mismatch
+            ? 'Sikeres jelentkezés – eltérő szint, edzői besorolás szükséges.'
+            : 'Sikeres bejelentkezés!'
+        );
+
+        // Csak egyszer frissítjük a kezdőlapot.
+        try { renderHome(); } catch(e) {}
+      })
+      .catch(function(err){
+        // Sikertelen mentésnél a helyi optimista állapotot visszavonjuk.
+        try {
+          if(sessions[sid] && sessions[sid].applicants){
+            delete sessions[sid].applicants[pid];
+          }
+        } catch(e) {}
+
+        console.error('V7.1.1 jelentkezési hiba:', err);
+        toast('A jelentkezést nem sikerült menteni. Próbáld újra.');
+      });
+  };
+
+  /*
+    Régebbi eltérő jelentkezések kompatibilitása:
+    ha mismatch=true és courtId üres/null, azokat is változatlanul
+    eltérő jelentkezésként kezeljük. Nem írjuk vissza automatikusan,
+    csak a megjelenítési logika kezeli őket.
+  */
+  try {
+    Object.keys(sessions || {}).forEach(function(sid){
+      var s = sessions[sid];
+      if(!s || !s.applicants) return;
+
+      Object.keys(s.applicants).forEach(function(pid){
+        var a = s.applicants[pid];
+        if(a && a.mismatch === true && !a.courtId){
+          a.courtId = MISMATCH_COURT;
+        }
+      });
+    });
+  } catch(e) {
+    console.warn('V7.1.1 kompatibilitási ellenőrzés:', e);
+  }
+})();
+</script>
+
 </body>
 </html>
