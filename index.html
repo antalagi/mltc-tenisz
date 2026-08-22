@@ -2751,6 +2751,149 @@ label.light-row input[type="checkbox"]{
 })();
 </script>
 <!-- /V7.1.7 -->
+
+
+<!-- V7.1.8 – Jelenlét: belépéskor aktuális nap/hét + napi és heti navigáció -->
+<style id="v7-1-8-att-nav-css">
+.att-nav-side-718{display:flex;gap:6px;align-items:center;flex:0 0 auto}
+.att-nav-side-718 .btn-nav{min-width:38px}
+.att-nav-side-718 .att-week-btn-718{font-weight:800;letter-spacing:-2px}
+@media(max-width:680px){
+  .att-nav-side-718{gap:4px}
+  .att-nav-side-718 .btn-nav{min-width:34px;padding-left:8px;padding-right:8px}
+}
+</style>
+<script id="v7-1-8-att-nav-patch">
+(function(){
+  function iso718(d){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function date718(iso){
+    const p=String(iso||'').split('-').map(Number);
+    return new Date(p[0],(p[1]||1)-1,p[2]||1,12,0,0,0);
+  }
+  function currentTarget718(){
+    const d=new Date(); d.setHours(12,0,0,0);
+    // Vasárnap nincs edzés: maradjunk az aktuális hét szombatján.
+    if(d.getDay()===0) d.setDate(d.getDate()-1);
+    return iso718(d);
+  }
+  function stepTrainingDay718(iso,delta){
+    const d=date718(iso);
+    const dir=delta>=0?1:-1;
+    let left=Math.abs(delta);
+    while(left>0){
+      d.setDate(d.getDate()+dir);
+      if(d.getDay()!==0) left--; // hétfő–szombat között lépkedünk
+    }
+    return iso718(d);
+  }
+  function rebuildAttendanceArray718(targetIso){
+    const sorted=(typeof allSessions==='function'?allSessions():Object.values(sessions||{}))
+      .map(s=>normalizeSession(s))
+      .filter(s=>s&&s.date&&new Date(s.date).getDay()!==0)
+      .sort((a,b)=>(a.date+(a.time||''))>(b.date+(b.time||''))?1:-1);
+    window.__attDaySessions654=sorted;
+    let idx=sorted.findIndex(s=>s.date===targetIso);
+    if(idx<0){
+      idx=sorted.findIndex(s=>s.date>targetIso);
+      if(idx<0) idx=Math.max(0,sorted.length-1);
+    }
+    window.__attDayIndex654=idx;
+  }
+  window.openAttDate718=function(targetIso){
+    if(!targetIso) return;
+    const done=function(){
+      rebuildAttendanceArray718(targetIso);
+      try{ renderAttForm(); }catch(e){ console.error(e); }
+    };
+    try{
+      if(typeof ensureAutoSession==='function'){
+        Promise.resolve(ensureAutoSession(targetIso)).then(done).catch(function(e){console.error(e);done();});
+      }else done();
+    }catch(e){console.error(e);done();}
+  };
+  window.moveAttCalendar718=function(delta){
+    const arr=window.__attDaySessions654||[];
+    const s=arr[window.__attDayIndex654||0];
+    const base=s&&s.date?s.date:currentTarget718();
+    openAttDate718(stepTrainingDay718(base,delta));
+  };
+  window.moveAttWeek718=function(deltaWeeks){
+    const arr=window.__attDaySessions654||[];
+    const s=arr[window.__attDayIndex654||0];
+    const d=date718(s&&s.date?s.date:currentTarget718());
+    d.setDate(d.getDate()+(deltaWeeks*7));
+    openAttDate718(iso718(d));
+  };
+  window.goAttToday=function(){ openAttDate718(currentTarget718()); };
+
+  function patchAttHeader718(){
+    const form=document.getElementById('att-form');
+    if(!form) return;
+    const todayBtn=Array.from(form.querySelectorAll('button')).find(b=>/Mai\s*\/\s*aktuális/i.test(b.textContent||''));
+    if(!todayBtn) return;
+    const right=todayBtn.parentElement;
+    const header=right&&right.parentElement;
+    if(!header || header.children.length<3) return;
+    const leftOld=header.children[0];
+    const center=header.children[1];
+    const left=document.createElement('div');
+    left.className='att-nav-side-718';
+    left.innerHTML='<button class="btn-nav att-week-btn-718" title="Előző hét" onclick="moveAttWeek718(-1)">«</button><button class="btn-nav" title="Előző nap" onclick="moveAttCalendar718(-1)">←</button>';
+    const newRight=document.createElement('div');
+    newRight.className='att-nav-side-718';
+    newRight.innerHTML='<button class="btn-nav" title="Következő nap" onclick="moveAttCalendar718(1)">→</button><button class="btn-nav att-week-btn-718" title="Következő hét" onclick="moveAttWeek718(1)">»</button>';
+    header.replaceChild(left,leftOld);
+    header.replaceChild(newRight,right);
+    if(center) center.style.minWidth='0';
+  }
+
+  const prevRenderAttForm718=window.renderAttForm;
+  if(typeof prevRenderAttForm718==='function'){
+    window.renderAttForm=function(){
+      const r=prevRenderAttForm718.apply(this,arguments);
+      try{ patchAttHeader718(); }catch(e){console.error(e);}
+      return r;
+    };
+  }
+
+  // Minden belépéskor automatikusan az aktuális nap/hét legyen az alapnézet.
+  const prevGoSec718=window.goSec;
+  if(typeof prevGoSec718==='function'){
+    window.goSec=function(id,btn){
+      const r=prevGoSec718.apply(this,arguments);
+      if(id==='jelenlet'){
+        setTimeout(function(){
+          if(typeof hasStaffAccess!=='function' || hasStaffAccess()) openAttDate718(currentTarget718());
+        },0);
+      }
+      if(id==='utmutato') setTimeout(updateGuide718,0);
+      return r;
+    };
+  }
+
+  function updateGuide718(){
+    const pane=document.getElementById('gpane-edzo');
+    if(!pane || pane.querySelector('.att-guide-718')) return;
+    const secs=Array.from(pane.querySelectorAll('.g-sec'));
+    const sec=secs.find(x=>(x.textContent||'').includes('Jelenlét rögzítése'));
+    if(!sec) return;
+    const box=document.createElement('div');
+    box.className='g-tip gold att-guide-718';
+    box.innerHTML='<p><strong>Jelenlét navigáció:</strong> a Jelenlét fül minden megnyitásakor automatikusan az aktuális napra (vasárnap az aktuális hét szombatjára) ugrik. A <strong>← / →</strong> nyilak egy edzésnapot, a <strong>« / »</strong> dupla nyilak egy teljes hetet lépnek vissza vagy előre.</p>';
+    sec.insertAdjacentElement('afterend',box);
+  }
+
+  try{ document.title='MLTC Tennis V7.1.8'; }catch(e){}
+  setTimeout(function(){
+    try{document.title='MLTC Tennis V7.1.8';updateGuide718();patchAttHeader718();}catch(e){}
+  },300);
+})();
+</script>
+<!-- /V7.1.8 -->
+
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
