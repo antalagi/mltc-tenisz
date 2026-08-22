@@ -2397,6 +2397,237 @@ setTimeout(function(){try{var title=document.querySelector('.logo em');if(title)
 </script>
 <!-- /V7.1.4 -->
 
+
+<!-- V7.1.5 – szombati világítás állapotmegőrzés + útmutató finomítás + egyszerűbb edzői összesítő -->
+<script id="v7-1-5-saturday-lighting-fix">
+(function(){
+  function isSat715(s){ return !!(s && s.date && new Date(s.date).getDay()===6); }
+
+  // A korábbi szombati normalizálás ne dobja el a lighting mezőt.
+  const oldNormalize715 = window.normalizeSession;
+  if(typeof oldNormalize715==='function'){
+    window.normalizeSession=function(sess){
+      const before = sess && sess.courts && sess.courts.court1 ? {
+        lighting: !!sess.courts.court1.lighting,
+        fee: sess.courts.court1.fee
+      } : null;
+
+      const r = oldNormalize715.apply(this,arguments);
+
+      try{
+        if(r && isSat715(r) && r.courts && r.courts.court1 && before){
+          // A jelölés és a hozzá tartozó díj maradjon meg.
+          if(before.lighting){
+            r.courts.court1.lighting = true;
+            r.courts.court1.fee = 4000;
+          }else if(r.courts.court1.lighting){
+            // ha már helyesen megvan, hagyjuk
+          }else if(before.fee===3000 || before.fee==null){
+            r.courts.court1.lighting = false;
+            r.courts.court1.fee = 3000;
+          }
+        }
+      }catch(e){}
+      return r;
+    };
+  }
+
+  // A világítás kapcsoló mindig az aktuális session állapotából rajzolódjon újra.
+  const oldLightingControl715 = window.lightingControl714;
+  window.lightingControl714=function(s,c){
+    if(!s || !s.date) return '';
+    const d=new Date(s.date), m=d.getMonth()+1, day=d.getDate();
+    const outdoor=(m>4&&m<10)||(m===4&&day>=15)||(m===10&&day<=15);
+    if(!outdoor) return '';
+    if(!(typeof hasStaffAccess==='function' && hasStaffAccess())) return '';
+    const checked=!!c.lighting;
+    return `<label class="light-row"><input type="checkbox" ${checked?'checked':''}
+      onchange="toggleLighting714('${s.id}','${c.id}',this.checked)"> Világítás (+1 000 Ft)</label>`;
+  };
+
+  // Mentés után közvetlenül frissítjük a lokális sessiont és a nézetet.
+  const oldToggleLighting715 = window.toggleLighting714;
+  window.toggleLighting714=function(sid,cid,checked){
+    if(!(typeof hasStaffAccess==='function' && hasStaffAccess())){
+      openStaffLogin('edzo',document.getElementById('nav-edzo'));
+      return;
+    }
+    const s=sessions[sid];
+    if(!s || !s.date) return;
+
+    const d=new Date(s.date), m=d.getMonth()+1, day=d.getDate();
+    const outdoor=(m>4&&m<10)||(m===4&&day>=15)||(m===10&&day<=15);
+    if(!outdoor){ toast('Világítás csak szabadtéri időszakban jelölhető.'); return; }
+
+    const fee=3000+(checked?1000:0);
+    if(!sessions[sid].courts?.[cid]) return;
+    sessions[sid].courts[cid].lighting=!!checked;
+    sessions[sid].courts[cid].fee=fee;
+
+    return db.ref(`sessions/${sid}/courts/${cid}`).update({
+      lighting:!!checked,
+      fee
+    }).then(()=>{
+      toast(checked?'Világítás hozzáadva (+1 000 Ft).':'Világítás törölve.');
+      try{
+        if(document.getElementById('sec-jelenlét')?.classList.contains('active')) renderAttSel();
+        if(document.getElementById('sec-edzo')?.classList.contains('active')) renderCoachWeek();
+        if(document.getElementById('sec-home')?.classList.contains('active')) renderHome();
+      }catch(e){}
+    });
+  };
+
+  // Coach blokkba a legfrissebb világítás vezérlőt tesszük.
+  const oldCoachBlock715 = window.coachBlock;
+  if(typeof oldCoachBlock715==='function'){
+    window.coachBlock=function(s,c){
+      // az előző blokk valószínűleg már tartalmazott lighting sort; kiszűrjük a duplikációt
+      let base = oldCoachBlock715.apply(this,arguments);
+      base = base.replace(/<label class="light-row">[\s\S]*?<\/label>/g,'');
+      return base + lightingControl714(s,c);
+    };
+  }
+})();
+</script>
+
+<script id="v7-1-5-summary-cleanup">
+(function(){
+  // A havi edzői összesítőből a magyarázó mondat kikerül; csak a táblázat marad.
+  const oldRenderCoachMonthly715 = window.renderCoachMonthlySummary714;
+  if(typeof oldRenderCoachMonthly715==='function'){
+    window.renderCoachMonthlySummary714=function(){
+      const host=document.getElementById('summary-table');
+      if(!host) return;
+
+      const old=document.getElementById('coach-monthly-summary-714');
+      if(old) old.remove();
+
+      if(!(typeof hasStaffAccess==='function' && hasStaffAccess())) return;
+      if(!sumMonth||!sumYear) return;
+
+      const acc={};
+      allSessions().map(normalizeSession).forEach(s=>{
+        const d=new Date(s.date);
+        if(d.getMonth()+1!==sumMonth || d.getFullYear()!==sumYear || s.status!=='closed') return;
+        courtArray(s).forEach(c=>{
+          const id=c.coachId||'';
+          const name=c.coachName||staffName(id)||'';
+          if(!id && !name) return;
+          const key=id||('name:'+name.toLowerCase());
+          if(!acc[key]) acc[key]={name:name||id||'Ismeretlen',count:0};
+          acc[key].count++;
+        });
+      });
+      const rows=Object.values(acc).sort((a,b)=>b.count-a.count || a.name.localeCompare(b.name,'hu'));
+
+      const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[m]));
+
+      const wrap=document.createElement('div');
+      wrap.id='coach-monthly-summary-714';
+      wrap.className='card coach-monthly-wrap';
+      wrap.innerHTML=`<h3>Edzői havi összesítő</h3>
+        ${rows.length?`<div class="tw"><table class="coach-monthly-table"><thead><tr><th>Edző</th><th>Edzői alkalmak</th></tr></thead><tbody>${
+          rows.map(r=>`<tr><td><strong>${esc(r.name)}</strong></td><td><span class="cost">${r.count}</span></td></tr>`).join('')
+        }</tbody></table></div>`:'<p style="color:var(--mu);font-size:12px">Erre a hónapra még nincs rögzített edzői alkalom.</p>'}`;
+      host.insertAdjacentElement('afterend',wrap);
+    };
+  }
+})();
+</script>
+
+<script id="v7-1-5-guide-final">
+(function(){
+  window.guideHtml=function(){return `<h2>Útmutató</h2><p class="sub">Válaszd ki a szerepkörödet az alábbi fülek közül.</p>
+    <div class="guide-tabs">
+      <button class="guide-tab active" onclick="showGuidePane('jatekos', this)">👤 Játékosoknak</button>
+      <button class="guide-tab gold" onclick="showGuidePane('edzo', this)">🎓 Edzőknek és szervezőknek</button>
+    </div>
+
+    <div class="guide-pane active" id="gpane-jatekos">
+      <div class="g-info">
+        <div class="g-card green"><h4>📱 Nincs letöltés</h4><p>Az oldal böngészőből működik telefonon és gépen. Érdemes könyvjelzőbe vagy a telefon kezdőképernyőjére menteni.</p></div>
+        <div class="g-card blue"><h4>🔄 Valós idejű</h4><p>A jelentkezések és lemondások automatikusan frissülnek.</p></div>
+        <div class="g-card gold"><h4>📋 Nyilvános lista</h4><p>A bejelentkezők neve és szintje mindenki számára látható.</p></div>
+      </div>
+
+      <div class="g-sec">Hogyan jelentkezhetsz be?</div>
+      <div class="g-step"><div class="g-num">1</div><div class="g-body"><h4>Válaszd ki a neved</h4><p>A „Ki vagy?” panelen kezdd el írni a neved, majd válaszd ki a listából. Ha nem szerepelsz, kérj meg egy szervezőt.</p></div></div>
+      <div class="g-step"><div class="g-num">2</div><div class="g-body"><h4>Ellenőrizd a hivatalos szintedet</h4><p>A neved kiválasztása után a hivatalos szinted automatikusan megjelenik. Ezt játékosként nem tudod módosítani. Ha hibás, szólj Ágnesnek vagy Juditnak.</p></div></div>
+      <div class="g-step"><div class="g-num">3</div><div class="g-body"><h4>Kattints a kívánt napra</h4><p>A Kezdőlapon látod a heti naptárt hétfőtől szombatig. Kattints arra a napra, amikor jönni szeretnél.</p></div></div>
+      <div class="g-step"><div class="g-num">4</div><div class="g-body"><h4>Nyomd meg a „✓ Bejelentkezem” gombot</h4><p>A napkártyán a jelentkezés után a <strong>„✓ Jel.”</strong> jelzés jelenik meg.</p></div></div>
+
+      <div class="g-sec">Ha nincs a szintednek megfelelő csoport</div>
+      <div class="g-step"><div class="g-num">!</div><div class="g-body"><h4>Eltérő szintű jelentkezés</h4><p>Ha az adott napon nincs a hivatalos szintednek megfelelő csoport, akkor is tudsz jelentkezni. A rendszer ilyenkor eltérő szintű jelentkezőként rögzít.</p></div></div>
+      <div class="g-step"><div class="g-num">→</div><div class="g-body"><h4>Egyeztess az edzővel vagy szervezővel</h4><p>Beszéljétek meg offline, hogy az adott edzésen tudsz-e másik szintű csoporthoz csatlakozni. A jelentkezés önmagában még nem jelent automatikus jóváhagyást.</p></div></div>
+      <div class="g-step"><div class="g-num">✓</div><div class="g-body"><h4>Az edző besorol</h4><p>Ha a részvételt jóváhagyják, az edző a Jelenlét lapon kiválasztja a megfelelő csoportot/pályát és rögzíti a jelenlétedet.</p></div></div>
+
+      <div class="g-sec">Hogyan mondasz le?</div>
+      <div class="g-step"><div class="g-num">1</div><div class="g-body"><h4>Válaszd ki a neved és kattints a napra</h4><p>Az ablakban a „✕ Lemondás” gombra kattintva a jelentkezésed azonnal törlődik.</p></div></div>
+
+      <div class="g-sec">Mit látsz a naptárban?</div>
+      <div class="g-info">
+        <div class="g-card blue"><h4>🕒 Időpont</h4><p>Az adott edzés aktuális időpontja látszik. Szombaton először <strong>„Időpont később”</strong> jelenhet meg; erre is lehet jelentkezni. A pontos kezdést az edző vagy admin később rögzítheti.</p></div>
+        <div class="g-card green"><h4>👥 Bejelentkezők</h4><p>A napkártyán a jelentkezők száma látszik. A napra kattintva megjelenik, kik jelentkeztek és melyik pályára/csoportba kerültek.</p></div>
+        <div class="g-card gold"><h4>✅ Saját jelentkezés</h4><p>Ha a napkártya zöld kerettel jelenik meg, be vagy jelentkezve arra a napra.</p></div>
+      </div>
+    </div>
+
+    <div class="guide-pane" id="gpane-edzo">
+      <div class="g-tip gold"><p>A Jelenlét, Edzések kezelése és Játékosok fülek belépéshez kötöttek. Belépés után Admin vagy Edző felirat látszik. A Kilépés gombbal bármikor ki lehet jelentkezni.</p></div>
+
+      <div class="g-sec">Jelenlét rögzítése – edzés után</div>
+      <div class="g-step"><div class="g-num gold">1</div><div class="g-body"><h4>Jelöld ki az edzőt</h4><p>Bármely belépett coach vagy admin mindkét pályán kijelölheti az aznapi edzőt: Juditot, Hajnít vagy Szilvit. Az <strong>„Én tartottam”</strong> gyorsgomb az aktuálisan belépett edzőt egy kattintással beállítja az adott pályára/csoportra – telefonon különösen praktikus.</p></div></div>
+      <div class="g-step"><div class="g-num gold">2</div><div class="g-body"><h4>Pipáld be a ténylegesen megjelenteket</h4><p>Az előre bejelentkezett játékosokat pipáld be, ha ténylegesen megjelentek.</p></div></div>
+      <div class="g-step"><div class="g-num gold">3</div><div class="g-body"><h4>Add hozzá, aki nem jelentkezett előre</h4><p>A „Be nem jelentkezett, de megjelent játékos hozzáadása” résznél válaszd ki a játékost és a tényleges pályát.</p></div></div>
+      <div class="g-step"><div class="g-num gold">4</div><div class="g-body"><h4>Eltérő szintű jelentkező</h4><p>Offline egyeztetés után válaszd ki a megfelelő pályát/csoportot, majd pipáld be. A besorolás és a jelenlét rögzítése jelenti a jóváhagyást.</p></div></div>
+      <div class="g-step"><div class="g-num gold">5</div><div class="g-body"><h4>Edzés lezárása</h4><p>A pipálások és az utólag hozzáadott játékosok menet közben mentődnek. Ha a napi jelenléti lista végleges, kattints az <strong>„Edzés lezárása”</strong> gombra. Lezárás után az edző már nem tudja módosítani az adatokat.</p></div></div>
+      <div class="g-tip gold"><p><strong>Admin emlékeztető:</strong> ha lezárás után hibát találtok, <strong>Ágnes vagy Judit</strong> admin jogosultsággal az <strong>„Admin feloldás”</strong> gombbal újra meg tudja nyitni az edzést, javíthatja a jelenlétet vagy a besorolást, majd az edzés újra lezárható.</p></div>
+
+      <div class="g-sec">Edzések és edzők</div>
+      <div class="g-step"><div class="g-num gold">→</div><div class="g-body"><h4>Heti áttekintés</h4><p>Az Edzések kezelése fülön hétfőtől szombatig látszanak a pályák, szintek, jelentkezők és az edzőkijelölés.</p></div></div>
+      <div class="g-step"><div class="g-num gold">→</div><div class="g-body"><h4>Szombati időpont</h4><p>Szombaton kezdetben „Időpont később” látszik. Az edző vagy admin megadhatja és később módosíthatja a pontos kezdést.</p></div></div>
+
+      <div class="g-sec">Díjszabás</div>
+      <div class="tw"><table><thead><tr><th>Időszak</th><th>Típus</th><th>Hétköznap</th><th>Szombat</th></tr></thead><tbody>
+        <tr><td>Ápr. 15 – Okt. 15</td><td>Szabadtéri</td><td><strong>3 000 Ft</strong></td><td><strong>3 000 Ft</strong></td></tr>
+        <tr><td>Okt. 16 – Ápr. 14</td><td>Fedett</td><td><strong>8 000 Ft</strong></td><td><strong>6 100 Ft</strong></td></tr>
+      </tbody></table></div>
+      <div class="g-tip gold"><p>Szabadtéri időszakban, ha világítás szükséges, jelöld be a <strong>Világítás (+1 000 Ft)</strong> pipát. A pályadíj ilyenkor 3 000 Ft-ról 4 000 Ft-ra nő; a pipa kivételével visszaáll 3 000 Ft-ra.</p></div>
+
+      <div class="g-sec">Játékosok kezelése</div>
+      <div class="g-step"><div class="g-num gold">→</div><div class="g-body"><h4>Adatok módosítása</h4><p>Az adott játékosnál kattints az <strong>„Adatok módosítása”</strong> gombra. Itt módosítható a név, e-mail cím és hivatalos szint, majd <strong>Mentés</strong>. A játékost nem kell törölni és újra felvenni.</p></div></div>
+      <div class="g-step"><div class="g-num gold">→</div><div class="g-body"><h4>Inaktiválás</h4><p>Ha a játékos már nem jár, inaktiváld. Szükség esetén később újraaktiválható.</p></div></div>
+
+      <div class="g-sec">Havi összesítő</div>
+      <div class="g-tip"><p>A játékosok havi összesítője belépés nélkül is látható, de <strong>csak a hónap utolsó napjától válik láthatóvá</strong>, és kizárólag a lezárt edzésekből számol.</p></div>
+      <div class="g-info">
+        <div class="g-card green"><h4>Játékosok</h4><p>Megjelenések száma és fizetendő pályadíj. Az adott pálya díja az azon a pályán megjelent játékosok között oszlik el.</p></div>
+        <div class="g-card gold"><h4>Edzői alkalmak</h4><p>Belépett staff/admin számára külön havi edzői összesítő látható. <strong>1 pálya/csoport = 1 edzői alkalom.</strong> Ha ugyanaz az edző ugyanazon a napon két pályán szerepel, az 2 alkalom.</p></div>
+      </div>
+    </div>`;};
+
+  const oldGoSec715 = window.goSec;
+  window.goSec=function(id,btn){
+    const r=oldGoSec715.apply(this,arguments);
+    if(id==='utmutato'){
+      const guide=document.getElementById('sec-utmutato');
+      if(guide) guide.innerHTML=guideHtml();
+    }
+    return r;
+  };
+
+  setTimeout(()=>{
+    try{
+      const guide=document.getElementById('sec-utmutato');
+      if(guide) guide.innerHTML=guideHtml();
+    }catch(e){}
+  },250);
+})();
+</script>
+<!-- /V7.1.5 -->
+
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
