@@ -3021,6 +3021,148 @@ label.light-row input[type="checkbox"]{
 })();
 </script>
 <!-- /V7.1.11 -->
+
+
+<!-- V7.1.12 – Firebase mentési biztonság: kezdeti adatbetöltés, tranzakciós auto-session, valódi hibaterjedés -->
+<script id="v7-1-12-save-safety-fix">
+(function(){
+  // 1) A mentési hibát nem nyeljük el. Így a hívó .then() ága csak valódi siker után fut le.
+  window.fbSet=function(path,data){
+    setSyncDot('spin');
+    setLoading(true);
+    return db.ref(path).set(data).then(function(){
+      setSyncDot('ok');
+      setLoading(false);
+    }).catch(function(err){
+      setSyncDot('err');
+      setLoading(false);
+      toast('⚠️ Mentési hiba: '+err.message);
+      throw err;
+    });
+  };
+
+  window.fbRemove=function(path){
+    setSyncDot('spin');
+    setLoading(true);
+    return db.ref(path).remove().then(function(){
+      setSyncDot('ok');
+      setLoading(false);
+    }).catch(function(err){
+      setSyncDot('err');
+      setLoading(false);
+      toast('⚠️ Törlési hiba: '+err.message);
+      throw err;
+    });
+  };
+
+  // 2) Biztosan megvárjuk a sessions ág első szerveroldali beolvasását,
+  // mielőtt a kezdőlap automatikus edzést hozhatna létre.
+  const sessionsInitialReady712 = db.ref('sessions').once('value').then(function(snap){
+    const fresh=snap.val()||{};
+    sessions=fresh;
+    Object.keys(sessions).forEach(function(k){
+      try{ normalizeSession(sessions[k]); }catch(e){}
+    });
+    return true;
+  }).catch(function(err){
+    setSyncDot('err');
+    toast('⚠️ Az edzésadatok betöltése nem sikerült: '+err.message);
+    throw err;
+  });
+  window.__sessionsInitialReady712=sessionsInitialReady712;
+
+  // 3) Meglévő sessiont a kezdőlap soha nem ír vissza teljes .set()-tel.
+  // Hiányzó auto-session létrehozása tranzakcióval történik: ha közben másik kliens
+  // már létrehozta, annak az adatait (és jelentkezőit) érintetlenül hagyjuk.
+  window.ensureAutoSession=function(iso){
+    return sessionsInitialReady712.then(function(){
+      const id=autoId(iso);
+      const dow=dayOfISO(iso);
+
+      if(sessions[id]){
+        return normalizeSession(sessions[id]);
+      }
+
+      const candidate={
+        id:id,
+        date:iso,
+        time:dow===6?'':'18:00',
+        dur:60,
+        courts:buildCourtsForISO(iso),
+        applicants:{},
+        attended:{},
+        isAuto:true,
+        status:'open'
+      };
+
+      setSyncDot('spin');
+      setLoading(true);
+      return db.ref('sessions/'+id).transaction(function(current){
+        return current===null ? candidate : current;
+      }).then(function(result){
+        setSyncDot('ok');
+        setLoading(false);
+        const actual=(result && result.snapshot && result.snapshot.val()) || candidate;
+        sessions[id]=actual;
+        return normalizeSession(sessions[id]);
+      }).catch(function(err){
+        setSyncDot('err');
+        setLoading(false);
+        toast('⚠️ Edzés betöltési/mentési hiba: '+err.message);
+        throw err;
+      });
+    });
+  };
+
+  // 4) A játékos jelentkezésénél külön hibaág: csak szerveres siker után zárjuk be a modalt.
+  window.applyDayModal=function(iso){
+    const pid=document.getElementById('home-player')?.value;
+    if(!pid){alert('Válassz játékost!');return;}
+    const p=players[pid];
+    if(!p){alert('Nem találom a kiválasztott játékost.');return;}
+    const level=p.level;
+    if(!level){alert('A játékos szintje nincs beállítva. Szólj az adminnak.');return;}
+
+    ensureAutoSession(iso).then(function(sess){
+      const sid=autoId(iso);
+      sess=normalizeSession(sess);
+      if(sess.applicants && sess.applicants[pid]){
+        toast('Már be vagy jelentkezve!');
+        return;
+      }
+      const cid=autoAssignCourt(sess,level);
+      const app={playerId:pid,playerName:p.name||'',level:level,playerLevel:level,courtId:cid,mismatch:!cid};
+      return fbSet('sessions/'+sid+'/applicants/'+pid,app).then(function(){
+        document.getElementById('modal').classList.add('hidden');
+        toast(cid?'Sikeres bejelentkezés!':'Sikeres bejelentkezés – edzői besorolás szükséges.');
+      });
+    }).catch(function(err){
+      console.error('V7.1.12 jelentkezési mentési hiba:',err);
+      // A részletes felhasználói hibaüzenetet az fbSet/ensureAutoSession már megjelenítette.
+    });
+  };
+
+  window.cancelDayModal=function(iso){
+    const pid=document.getElementById('home-player')?.value;
+    if(!pid){alert('Válassz játékost!');return;}
+    fbRemove('sessions/'+autoId(iso)+'/applicants/'+pid).then(function(){
+      document.getElementById('modal').classList.add('hidden');
+      toast('Bejelentkezés lemondva.');
+    }).catch(function(err){
+      console.error('V7.1.12 lemondási törlési hiba:',err);
+    });
+  };
+
+  function title712(){
+    try{ document.title='MLTC Tennis V7.1.12'; }catch(e){}
+  }
+  title712();
+  setTimeout(title712,300);
+  setTimeout(title712,1200);
+})();
+</script>
+<!-- /V7.1.12 -->
+
 </body>
 </html>
 <!-- V7.1.2: Útmutató frissítve – hivatalos szint, eltérő szintű jelentkezés, offline egyeztetés, edzői besorolás/jóváhagyás, aktuális időpontkezelés -->
