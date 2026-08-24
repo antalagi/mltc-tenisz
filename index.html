@@ -722,7 +722,7 @@ function renderMonthBtns(av){ document.getElementById('month-hist').innerHTML=av
 function selMonth(y,m){ sumYear=y; sumMonth=m; renderMonthBtns(availMonths()); renderSummary(); }
 function renderSummary(){ if(!sumMonth||!sumYear)return; const lk=!isUnlocked(sumYear,sumMonth); document.getElementById('sum-lock-msg').innerHTML=lk?`<div class="sum-lock">🔒 Ez a hónap még nem zárult le. Az összesítő ${MONTHS[sumMonth-1]} utolsó napján válik láthatóvá.</div>`:''; if(lk){document.getElementById('summary-stats').innerHTML='';document.getElementById('summary-table').innerHTML='';return;} const fil=allSessions().map(normalizeSession).filter(s=>{const d=new Date(s.date); return d.getMonth()+1===sumMonth&&d.getFullYear()===sumYear&&s.status==='closed';}); const pd={}; playerList().forEach(p=>pd[p.id]={attended:0,cost:0}); let courtFees=0, totalAt=0; fil.forEach(s=>{ courtArray(s).forEach(c=>{ const ats=attList(s).filter(a=>a.courtId===c.id); if(!ats.length)return; const share=(c.fee||DEF_FEE)/ats.length; courtFees+=c.fee||DEF_FEE; totalAt+=ats.length; ats.forEach(a=>{ if(!pd[a.playerId])pd[a.playerId]={attended:0,cost:0}; pd[a.playerId].attended++; pd[a.playerId].cost+=share; }); }); }); document.getElementById('summary-stats').innerHTML=`<div class="sc"><div class="v">${fil.length}</div><div class="l">Lezárt edzések</div></div><div class="sc"><div class="v">${totalAt}</div><div class="l">Megjelenések</div></div><div class="sc"><div class="v">${courtFees.toLocaleString('hu-HU')} Ft</div><div class="l">Össz. pályadíj</div></div>`; const rows=playerList().map(p=>({player:p,...pd[p.id]})).filter(r=>r.attended>0); if(!rows.length){document.getElementById('summary-table').innerHTML='<div class="empty"><div class="ic">📊</div><p>Erre a hónapra még nincs lezárt jelenléti adat.</p></div>';return;} document.getElementById('summary-table').innerHTML=`<div class="tw"><table><thead><tr><th>Játékos</th><th>Szint</th><th>Megjelent</th><th>Fizetendő</th></tr></thead><tbody>${rows.sort((a,b)=>b.cost-a.cost).map(r=>`<tr><td><strong>${r.player.name}</strong></td><td>${lv(r.player.level)||'—'}</td><td>${r.attended}</td><td><span class="cost">${Math.round(r.cost).toLocaleString('hu-HU')} Ft</span></td></tr>`).join('')}<tr style="border-top:2px solid var(--b1)"><td colspan="3" style="font-weight:700;color:var(--mu)">Összesen</td><td><span class="cost">${Math.round(rows.reduce((a,r)=>a+r.cost,0)).toLocaleString('hu-HU')} Ft</span></td></tr></tbody></table></div>`; }
 
-document.getElementById('s-date').valueAsDate=new Date(); setSyncDot('spin'); renderHome();
+document.getElementById('s-date').valueAsDate=new Date(); setSyncDot('spin'); /* V7.1.13: nincs korai renderHome(); a Firebase sessions első betöltése indítja a biztonságos renderelést */
 
 </script>
 
@@ -3154,7 +3154,7 @@ label.light-row input[type="checkbox"]{
   };
 
   function title712(){
-    try{ document.title='MLTC Tennis V7.1.12'; }catch(e){}
+    try{ document.title='MLTC Tennis V7.1.13'; }catch(e){}
   }
   title712();
   setTimeout(title712,300);
@@ -3162,6 +3162,404 @@ label.light-row input[type="checkbox"]{
 })();
 </script>
 <!-- /V7.1.12 -->
+
+<!-- V7.1.13 – startup adatvédelem: a régi szinkron renderHome eltávolítva, hogy betöltés előtt ne írhasson üres sessiont -->
+
+
+
+<!-- V7.1.14 – jelentkezés-perzisztencia végleges védelem -->
+<script id="v7-1-14-registration-persistence-fix">
+(function(){
+  'use strict';
+
+  const V714_SESSION_ROOT = /^sessions\/[^/]+$/;
+
+  function v714Busy(on){
+    try{ setLoading(!!on); }catch(e){}
+    try{ setSyncDot(on?'spin':'ok'); }catch(e){}
+  }
+
+  function v714Err(prefix, err){
+    try{ setSyncDot('err'); setLoading(false); }catch(e){}
+    const msg = prefix + (err && err.message ? ': '+err.message : '');
+    try{ toast(msg); }catch(e){}
+  }
+
+  /*
+    KRITIKUS VÉDELEM:
+    A régi patch-ek közül néhány még teljes sessions/<nap> objektumot akar .set()-tel
+    visszaírni. Ezt itt globálisan elfogjuk. Ha a nap már létezik, a jelentkezők és
+    jelenlétek MINDIG a szerveren levő aktuális értéken maradnak; csak a többi mező
+    frissülhet. Így egy régi normalizáló/időpont patch sem tudja lenullázni őket.
+  */
+  window.fbSet = function(path, data){
+    v714Busy(true);
+
+    if(V714_SESSION_ROOT.test(path) && data && typeof data === 'object'){
+      return db.ref(path).transaction(function(current){
+        if(current === null) return data;
+        const merged = Object.assign({}, current, data);
+        // A két érzékeny gyűjteményt soha nem írhatja felül teljes-session mentés.
+        if(Object.prototype.hasOwnProperty.call(current,'applicants')) merged.applicants = current.applicants;
+        else delete merged.applicants;
+        if(Object.prototype.hasOwnProperty.call(current,'attended')) merged.attended = current.attended;
+        else delete merged.attended;
+        return merged;
+      }).then(function(result){
+        v714Busy(false);
+        if(result && result.snapshot){
+          const sid=path.split('/')[1];
+          sessions[sid]=result.snapshot.val()||sessions[sid];
+        }
+        return result;
+      }).catch(function(err){
+        v714Err('⚠️ Mentési hiba',err);
+        throw err;
+      });
+    }
+
+    return db.ref(path).set(data).then(function(){
+      v714Busy(false);
+      return true;
+    }).catch(function(err){
+      v714Err('⚠️ Mentési hiba',err);
+      throw err;
+    });
+  };
+
+  window.fbRemove = function(path){
+    v714Busy(true);
+    return db.ref(path).remove().then(function(){
+      v714Busy(false);
+      return true;
+    }).catch(function(err){
+      v714Err('⚠️ Törlési hiba',err);
+      throw err;
+    });
+  };
+
+  /*
+    Auto-session: csak tranzakcióval hozható létre. Meglévő napot nem alakít át és
+    nem ír vissza; azt kizárólag beolvassa. Ez a régi ensureAutoSession verziókat
+    végleg felülírja.
+  */
+  window.ensureAutoSession = function(iso){
+    const id=autoId(iso);
+    const ready = window.__sessionsInitialReady712 || Promise.resolve(true);
+    return ready.then(function(){
+      return db.ref('sessions/'+id).transaction(function(current){
+        if(current !== null) return; // undefined = tranzakció megszakítása, nincs írás
+        const dow=dayOfISO(iso);
+        return {
+          id:id,
+          date:iso,
+          time:dow===6?'':'18:00',
+          dur:60,
+          courts:buildCourtsForISO(iso),
+          applicants:{},
+          attended:{},
+          isAuto:true,
+          status:'open'
+        };
+      }, undefined, false).then(function(result){
+        // Ha abortált, külön szerveres read kell; ha commitált, snapshotban ott van.
+        if(result && result.committed && result.snapshot){
+          sessions[id]=result.snapshot.val();
+          return normalizeSession(sessions[id]);
+        }
+        return db.ref('sessions/'+id).once('value').then(function(snap){
+          let val=snap.val();
+          if(!val){
+            // Ritka race: újrapróbáljuk egyszer tranzakcióval.
+            return db.ref('sessions/'+id).transaction(function(cur){
+              if(cur!==null) return;
+              const dow=dayOfISO(iso);
+              return {id:id,date:iso,time:dow===6?'':'18:00',dur:60,courts:buildCourtsForISO(iso),applicants:{},attended:{},isAuto:true,status:'open'};
+            }).then(function(r){ val=r.snapshot.val(); sessions[id]=val; return normalizeSession(val); });
+          }
+          sessions[id]=val;
+          return normalizeSession(val);
+        });
+      });
+    });
+  };
+
+  /*
+    Jelentkezés: közvetlenül a játékos saját child rekordját írjuk tranzakcióval.
+    Ezután SERVER READ ellenőrzi, hogy valóban megmaradt-e. Sikerüzenet csak ekkor.
+  */
+  window.applyDayModal = function(iso){
+    const pid=document.getElementById('home-player')?.value||'';
+    if(!pid){ alert('Válassz játékost!'); return; }
+    const p=(players||{})[pid];
+    if(!p){ alert('Nem találom a kiválasztott játékost.'); return; }
+    const level=p.level||'';
+    if(!level){ alert('A játékos szintje nincs beállítva. Szólj az adminnak.'); return; }
+
+    ensureAutoSession(iso).then(function(sess){
+      const sid=autoId(iso);
+      sess=normalizeSession(sess);
+      const cid=autoAssignCourt(sess,level);
+      const app={playerId:pid,playerName:p.name||'',level:level,playerLevel:level,courtId:cid,mismatch:!cid};
+      const ref=db.ref('sessions/'+sid+'/applicants/'+pid);
+
+      v714Busy(true);
+      return ref.transaction(function(current){
+        return current || app;
+      }).then(function(){
+        return ref.once('value');
+      }).then(function(snap){
+        const saved=snap.val();
+        if(!saved || saved.playerId!==pid){
+          throw new Error('A Firebase visszaellenőrzése szerint a jelentkezés nem maradt elmentve.');
+        }
+        if(!sessions[sid]) sessions[sid]=sess;
+        if(!sessions[sid].applicants) sessions[sid].applicants={};
+        sessions[sid].applicants[pid]=saved;
+        v714Busy(false);
+        const modal=document.getElementById('modal'); if(modal) modal.classList.add('hidden');
+        toast(saved.mismatch?'Sikeres jelentkezés – eltérő szint, edzői besorolás szükséges.':'Sikeres bejelentkezés!');
+        try{ renderHome(); }catch(e){}
+      });
+    }).catch(function(err){
+      console.error('V7.1.14 jelentkezési hiba:',err);
+      v714Err('⚠️ A jelentkezést nem sikerült tartósan elmenteni',err);
+    });
+  };
+
+  window.cancelDayModal = function(iso){
+    const pid=document.getElementById('home-player')?.value||'';
+    if(!pid){ alert('Válassz játékost!'); return; }
+    const sid=autoId(iso);
+    const ref=db.ref('sessions/'+sid+'/applicants/'+pid);
+    v714Busy(true);
+    ref.remove().then(function(){ return ref.once('value'); }).then(function(snap){
+      if(snap.exists()) throw new Error('A lemondás visszaellenőrzése sikertelen.');
+      if(sessions[sid]&&sessions[sid].applicants) delete sessions[sid].applicants[pid];
+      v714Busy(false);
+      const modal=document.getElementById('modal'); if(modal) modal.classList.add('hidden');
+      toast('Bejelentkezés lemondva.');
+      try{renderHome();}catch(e){}
+    }).catch(function(err){
+      console.error('V7.1.14 lemondási hiba:',err);
+      v714Err('⚠️ A lemondást nem sikerült elmenteni',err);
+    });
+  };
+
+  function v714Title(){
+    try{ document.title='MLTC Tennis V7.1.14'; }catch(e){}
+    try{ const t=document.querySelector('.logo em'); if(t)t.textContent='Felnőtt Tenisz V7.1.14'; }catch(e){}
+  }
+  v714Title();
+  setTimeout(v714Title,100);
+  setTimeout(v714Title,900);
+})();
+</script>
+<!-- /V7.1.14 -->
+
+
+
+<!-- V7.1.14 – külön jelentkezési adattár (registrations) – ugyanazon verzió javított kiadása -->
+<script id="v7-1-14-separate-registration-store-fix">
+(function(){
+  'use strict';
+
+  // A jelentkezések elsődleges adattára többé NEM a session objektum része.
+  // Így egy session újragenerálása / normalizálása / teljes mentése nem tudja
+  // eltüntetni a játékosok jelentkezéseit.
+  let registrationStore714 = {};
+  let registrationsReady714 = false;
+
+  function regPlayers714(sid){
+    const bucket = registrationStore714[sid];
+    if(!bucket || typeof bucket !== 'object') return null; // null = legacy session.applicants marad érvényben
+    const out = {};
+    Object.keys(bucket).forEach(function(k){
+      if(k.charAt(0)==='_') return;
+      const v=bucket[k];
+      if(v && typeof v==='object') out[k]=v;
+    });
+    return out;
+  }
+
+  function hydrateSession714(sid, sess){
+    if(!sess) return sess;
+    const reg = regPlayers714(sid);
+    // Ha a registrations/<sid> ág létezik, az az autoritatív jelentkezési lista.
+    // Ha még nem létezik, visszafelé kompatibilisen a régi session.applicants él tovább.
+    if(reg !== null) sess.applicants = reg;
+    return sess;
+  }
+
+  function hydrateAll714(){
+    Object.keys(sessions||{}).forEach(function(sid){
+      hydrateSession714(sid, sessions[sid]);
+    });
+  }
+
+  function rerenderAfterReg714(){
+    try{
+      const active=(document.querySelector('.sec.active')||{}).id||'';
+      if(active==='sec-home') renderHome();
+      else if(active==='sec-edzo') renderCoachWeek();
+      else if(active==='sec-jelenlét'){ try{renderAttSel();}catch(e){} try{renderAttForm();}catch(e){} }
+      else if(active==='sec-edzesek') renderSessionsList();
+      if(!document.getElementById('modal')?.classList.contains('hidden') && modalId && sessions[modalId]){
+        try{ openDayModal(sessions[modalId].date); }catch(e){}
+      }
+    }catch(e){ console.warn('V7.1.14 registration rerender:',e); }
+  }
+
+  // Külön realtime listener az új jelentkezési adattárhoz.
+  db.ref('registrations').on('value', function(snap){
+    registrationStore714 = snap.val() || {};
+    registrationsReady714 = true;
+    hydrateAll714();
+    rerenderAfterReg714();
+  }, function(err){
+    console.error('V7.1.14 registrations listener hiba:',err);
+    try{toast('⚠️ A jelentkezések betöltése sikertelen: '+err.message);}catch(e){}
+  });
+
+  // A sessions eredeti listenere után is visszahúzzuk a külön jelentkezéseket,
+  // mert a régi listener nyers session objektumokkal cseréli le a sessions változót.
+  db.ref('sessions').on('value', function(){
+    if(!registrationsReady714) return;
+    setTimeout(function(){ hydrateAll714(); rerenderAfterReg714(); },0);
+  });
+
+  // Minden applList-hívás a külön adattárat preferálja.
+  window.applList = function(sess){
+    if(!sess) return [];
+    const sid=sess.id;
+    if(sid){ hydrateSession714(sid,sess); }
+    return Object.values(sess.applicants||{}).filter(function(a){return a&&typeof a==='object'&&a.playerId;});
+  };
+
+  // ensureAutoSession: a szerverről kapott sessiont azonnal kiegészíti a külön jelentkezésekkel.
+  const ensureBefore714sep = window.ensureAutoSession;
+  window.ensureAutoSession = function(iso){
+    return Promise.resolve(ensureBefore714sep(iso)).then(function(sess){
+      const sid=autoId(iso);
+      if(sess){ sessions[sid]=sess; hydrateSession714(sid,sessions[sid]); }
+      return sessions[sid] || sess;
+    });
+  };
+
+  function waitRegistrations714(){
+    if(registrationsReady714) return Promise.resolve(true);
+    return db.ref('registrations').once('value').then(function(snap){
+      registrationStore714=snap.val()||{};
+      registrationsReady714=true;
+      hydrateAll714();
+      return true;
+    });
+  }
+
+  function verifySaved714(sid,pid){
+    return db.ref('registrations/'+sid+'/'+pid).once('value').then(function(snap){
+      const v=snap.val();
+      if(!v || v.playerId!==pid) throw new Error('A szerveres visszaellenőrzés nem találta a jelentkezést.');
+      return v;
+    });
+  }
+
+  // ÚJ jelentkezés: csak a külön registrations ágba írunk.
+  window.applyDayModal = function(iso){
+    const pid=document.getElementById('home-player')?.value||'';
+    if(!pid){alert('Válassz játékost!');return;}
+    const p=(players||{})[pid];
+    if(!p){alert('Nem találom a kiválasztott játékost.');return;}
+    const level=p.level||'';
+    if(!level){alert('A játékos szintje nincs beállítva. Szólj az adminnak.');return;}
+    const sid=autoId(iso);
+
+    Promise.all([ensureAutoSession(iso),waitRegistrations714()]).then(function(res){
+      const sess=hydrateSession714(sid,normalizeSession(res[0]));
+      const existing=regPlayers714(sid);
+      if(existing && existing[pid]){toast('Már be vagy jelentkezve!');return null;}
+      if(existing===null && sess.applicants && sess.applicants[pid]){toast('Már be vagy jelentkezve!');return null;}
+      const cid=autoAssignCourt(sess,level);
+      const app={playerId:pid,playerName:p.name||'',level:level,playerLevel:level,courtId:cid,mismatch:!cid};
+      try{setLoading(true);setSyncDot('spin');}catch(e){}
+      const updates={};
+      updates['_managed']=true;
+      updates[pid]=app;
+      return db.ref('registrations/'+sid).update(updates).then(function(){
+        return verifySaved714(sid,pid);
+      }).then(function(saved){
+        if(!registrationStore714[sid]) registrationStore714[sid]={_managed:true};
+        registrationStore714[sid]._managed=true;
+        registrationStore714[sid][pid]=saved;
+        if(!sessions[sid]) sessions[sid]=sess;
+        hydrateSession714(sid,sessions[sid]);
+        try{setLoading(false);setSyncDot('ok');}catch(e){}
+        const modal=document.getElementById('modal'); if(modal)modal.classList.add('hidden');
+        toast(saved.mismatch?'Sikeres jelentkezés – eltérő szint, edzői besorolás szükséges.':'Sikeres bejelentkezés!');
+        rerenderAfterReg714();
+      });
+    }).catch(function(err){
+      console.error('V7.1.14 külön jelentkezési mentési hiba:',err);
+      try{setLoading(false);setSyncDot('err');toast('⚠️ A jelentkezést nem sikerült tartósan elmenteni: '+err.message);}catch(e){}
+    });
+  };
+
+  // Lemondás: csak a külön registrations ágból töröl, a _managed jelzőt megtartva.
+  // Emiatt a régi session.applicants rekord nem tud "visszajönni" lemondás után.
+  window.cancelDayModal = function(iso){
+    const pid=document.getElementById('home-player')?.value||'';
+    if(!pid){alert('Válassz játékost!');return;}
+    const sid=autoId(iso);
+    try{setLoading(true);setSyncDot('spin');}catch(e){}
+    const updates={_managed:true}; updates[pid]=null;
+    db.ref('registrations/'+sid).update(updates).then(function(){
+      return db.ref('registrations/'+sid+'/'+pid).once('value');
+    }).then(function(snap){
+      if(snap.exists()) throw new Error('A lemondás szerveres visszaellenőrzése sikertelen.');
+      if(!registrationStore714[sid]) registrationStore714[sid]={_managed:true};
+      registrationStore714[sid]._managed=true;
+      delete registrationStore714[sid][pid];
+      if(sessions[sid]) hydrateSession714(sid,sessions[sid]);
+      try{setLoading(false);setSyncDot('ok');}catch(e){}
+      const modal=document.getElementById('modal'); if(modal)modal.classList.add('hidden');
+      toast('Bejelentkezés lemondva.');
+      rerenderAfterReg714();
+    }).catch(function(err){
+      console.error('V7.1.14 külön jelentkezési lemondási hiba:',err);
+      try{setLoading(false);setSyncDot('err');toast('⚠️ A lemondást nem sikerült elmenteni: '+err.message);}catch(e){}
+    });
+  };
+
+  /*
+    Egyszeri, automatikus kompatibilitási migráció:
+    ha van régi session.applicants adat és ahhoz még nincs registrations/<sid> ág,
+    átmásoljuk a külön adattárba. Így a meglévő teszt/júliusi jelentkezések sem vesznek el.
+  */
+  Promise.all([db.ref('sessions').once('value'),db.ref('registrations').once('value')]).then(function(vals){
+    const ss=vals[0].val()||{};
+    const rr=vals[1].val()||{};
+    const multi={};
+    Object.keys(ss).forEach(function(sid){
+      const legacy=(ss[sid]&&ss[sid].applicants)||{};
+      const ids=Object.keys(legacy).filter(function(pid){return legacy[pid]&&legacy[pid].playerId;});
+      if(!ids.length || rr[sid]) return;
+      multi['registrations/'+sid+'/_managed']=true;
+      ids.forEach(function(pid){ multi['registrations/'+sid+'/'+pid]=legacy[pid]; });
+    });
+    if(!Object.keys(multi).length) return false;
+    return db.ref().update(multi).then(function(){console.log('V7.1.14 legacy jelentkezések migrálva:',Object.keys(multi).length);});
+  }).catch(function(err){
+    console.warn('V7.1.14 legacy jelentkezés migráció nem futott le:',err);
+  });
+
+  function title714sep(){
+    try{document.title='MLTC Tennis V7.1.14';}catch(e){}
+    try{const t=document.querySelector('.logo em');if(t)t.textContent='Felnőtt Tenisz V7.1.14';}catch(e){}
+  }
+  title714sep(); setTimeout(title714sep,300); setTimeout(title714sep,1200);
+})();
+</script>
+<!-- /V7.1.14 külön jelentkezési adattár -->
 
 </body>
 </html>
